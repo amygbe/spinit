@@ -30,7 +30,7 @@ export const WEB_APP = `<!doctype html>
 <style>
   :root {
     --ground:#2B3AF0; --on-ground:#FFF6E3; --on-dim:#B9C0FF;
-    --card:#FFF7E8; --ink:#15104A; --ink-soft:#5A5490; --ink-mute:#5F5A93;
+    --card:#FFF0CF; --ink:#15104A; --ink-soft:#5A5490; --ink-mute:#5F5A93;
     --pop:#FFD426; --on-pop:#15104A; --line:rgba(21,16,74,.10);
     --display:"Sour Gummy", ui-rounded, -apple-system, system-ui, sans-serif;
     --body:ui-rounded, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
@@ -266,23 +266,23 @@ var ROLE_HINT = { base:"blend, then freeze 24h", flavour:"blend into the pint", 
 // Blue Raspberry is the original; Midnight is the dark one.
 var PALETTES = {
   blueRaspberry: { label: "Blue Raspberry", desc: "The original. Royal blue, cream, and a yellow pop.",
-    vars: { "--ground":"#2B3AF0", "--on-ground":"#FFF6E3", "--on-dim":"#B9C0FF", "--card":"#FFF7E8",
+    vars: { "--ground":"#2B3AF0", "--on-ground":"#FFF6E3", "--on-dim":"#B9C0FF", "--card":"#FFF0CF",
             "--ink":"#15104A", "--ink-soft":"#5A5490", "--ink-mute":"#5F5A93",
             "--pop":"#FFD426", "--on-pop":"#15104A", "--line":"rgba(21,16,74,.10)" } },
   slushie: { label: "Slushie", desc: "Brighter and colder, with a magenta pop.",
-    vars: { "--ground":"#00A8E8", "--on-ground":"#04263B", "--on-dim":"#075C86", "--card":"#F2FBFF",
+    vars: { "--ground":"#00A8E8", "--on-ground":"#04263B", "--on-dim":"#075C86", "--card":"#DDF2FE",
             "--ink":"#05304A", "--ink-soft":"#34627E", "--ink-mute":"#45708C",
             "--pop":"#D50F63", "--on-pop":"#FFFFFF", "--line":"rgba(5,48,74,.10)" } },
   blueberry: { label: "Blueberry", desc: "Deeper blue, warmed up with orange.",
-    vars: { "--ground":"#2012C4", "--on-ground":"#EFEBFF", "--on-dim":"#A79BFF", "--card":"#F4F1FF",
+    vars: { "--ground":"#2012C4", "--on-ground":"#EFEBFF", "--on-dim":"#A79BFF", "--card":"#E7E1FF",
             "--ink":"#170A56", "--ink-soft":"#4A3E8E", "--ink-mute":"#574B9C",
             "--pop":"#FF9E00", "--on-pop":"#2A1600", "--line":"rgba(23,10,86,.10)" } },
   freezie: { label: "Freezie", desc: "The pale icy one.",
-    vars: { "--ground":"#CFEDFF", "--on-ground":"#093A5E", "--on-dim":"#3E6E94", "--card":"#FDFEFF",
+    vars: { "--ground":"#CFEDFF", "--on-ground":"#093A5E", "--on-dim":"#3E6E94", "--card":"#E4F3FF",
             "--ink":"#0A2E4A", "--ink-soft":"#38607F", "--ink-mute":"#486F8D",
             "--pop":"#C7137A", "--on-pop":"#FFFFFF", "--line":"rgba(10,46,74,.10)" } },
   razz: { label: "Razz", desc: "The raspberry half, with royal blue as the pop.",
-    vars: { "--ground":"#C81355", "--on-ground":"#FFF0F6", "--on-dim":"#FFA9C9", "--card":"#FFF5F9",
+    vars: { "--ground":"#C81355", "--on-ground":"#FFF0F6", "--on-dim":"#FFA9C9", "--card":"#FFE3EE",
             "--ink":"#4A0A26", "--ink-soft":"#8E3A5E", "--ink-mute":"#964063",
             "--pop":"#2B3AF0", "--on-pop":"#FFFFFF", "--line":"rgba(74,10,38,.10)" } },
   midnight: { label: "Midnight", desc: "The dark one.",
@@ -1060,7 +1060,7 @@ export const MANIFEST = JSON.stringify({
 // Shell cached so the app opens instantly and offline; the catalogue is
 // network-first so an approval is never hidden behind a stale cache.
 export const SERVICE_WORKER = `
-const SHELL = "churn-shell-v11";
+const SHELL = "churn-shell-v12";
 const FILES = ["/", "/manifest.webmanifest", "/icon-180.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {
