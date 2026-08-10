@@ -15,7 +15,7 @@ export const WEB_APP = `<!doctype html>
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Spin It — Ninja Creami recipes</title>
+<title>Spin It · Ninja Creami recipes</title>
 <meta name="description" content="A shelf of Ninja Creami recipes worth making twice.">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/icon-180.png">
@@ -369,7 +369,7 @@ function applyRating(recipeId, stars) {
     if (prev === undefined) delete DB.myStars[recipeId]; else DB.myStars[recipeId] = prev;
     save();
     if (VIEW.name === "remote" && VIEW.id === recipeId) showRemote(recipeId);
-    alert((err && err.error) || "Couldn't save your rating \u2014 try again in a bit.");
+    alert((err && err.error) || "Couldn't save your rating. Try again in a bit.");
   });
 }
 
@@ -386,13 +386,13 @@ function sendRating(recipeId, stars) {
 // ---------- shared bits ----------
 
 var SQUIGGLE = '<svg class="squiggle" viewBox="0 0 104 9" preserveAspectRatio="none" aria-hidden="true">' +
-  '<path d="M0 4.5 Q7.4 0 14.9 4.5 T29.7 4.5 T44.6 4.5 T59.4 4.5 T74.3 4.5 T89.1 4.5 T104 4.5" fill="none" stroke="#FFD426" stroke-width="3" stroke-linecap="round"/></svg>';
+  '<path d="M0 4.5 Q7.4 0 14.9 4.5 T29.7 4.5 T44.6 4.5 T59.4 4.5 T74.3 4.5 T89.1 4.5 T104 4.5" fill="none" style="stroke:var(--pop)" stroke-width="3" stroke-linecap="round"/></svg>';
 
 function tileHTML(r) {
   if (r.image) return '<span class="tile"><img src="' + r.image + '" alt=""></span>';
   var c = SWATCH[r.swatch] || SWATCH.vanilla;
   return '<span class="tile" style="background:color-mix(in srgb, ' + c +
-    ' 26%, #FFF7E8); border-color:color-mix(in srgb, ' + c + ' 65%, #FFF7E8)">' + esc(r.glyph) + '</span>';
+    ' 30%, var(--card)); border-color:color-mix(in srgb, ' + c + ' 70%, var(--card))">' + esc(r.glyph) + '</span>';
 }
 
 function header(tab) {
@@ -420,7 +420,7 @@ function ingredientPanels(r) {
   function irow(amtText, name, note, optional) {
     return '<div class="irow"><span class="amt">' + esc(amtText) + '</span><span>' + esc(name) +
       (optional ? ' <span class="opt">optional</span>' : "") +
-      (note ? ' <span class="inote">— ' + esc(note) + '</span>' : "") + '</span></div>';
+      (note ? ' <span class="inote">\u00b7 ' + esc(note) + '</span>' : "") + '</span></div>';
   }
   function panel(title, hint, rowsHTML) {
     return '<div class="panel"><div class="sub">' + title + ' <span class="subhint">' + hint + '</span></div>' + rowsHTML + '</div>';
@@ -479,7 +479,7 @@ function renderShelf() {
     '<button class="btn wide" data-act="new-recipe">+ New flavour</button>' +
     '</div>' +
     '<div class="install">📲 <b>Add it to your home screen:</b> tap Share, then <b>Add to Home Screen</b>. ' +
-    'Your recipes, photos and ratings live on this device — nothing is shared unless you choose to.</div>';
+    'Your recipes, photos and ratings live on this device. Nothing is shared unless you choose to.</div>';
   window.scrollTo(0, 0);
 }
 
@@ -493,7 +493,7 @@ function showLocal(id) {
     '<button class="rbtn" data-act="rate-down">−</button>' +
     (lg.rating !== null
       ? '<span class="rate-num">' + fmtScore(lg.rating) + '<small> /10</small></span>'
-      : '<span class="rate-num none">not yet — tap + </span>') +
+      : '<span class="rate-num none">not yet \u00b7 tap + </span>') +
     '<button class="rbtn" data-act="rate-up">+</button>' +
     (lg.rating !== null ? '<button class="clear-rate" data-act="clear-rate">clear</button>' : "") +
     '</div>';
@@ -626,7 +626,7 @@ function ratingPanel(w) {
                   : " (" + fmtScore(Math.abs(d)) + " below average)");
     }
   } else {
-    meta = mine ? 'You: \u2605 ' + mine + ' \u00b7 first rating in!' : "No ratings yet \u2014 be the first.";
+    meta = mine ? 'You: \u2605 ' + mine + ' \u00b7 first rating in!' : "No ratings yet. Be the first!";
   }
   return '<div class="panel"><div class="sub">Rate it <span class="subhint">tap once \u00b7 twice for a half</span></div>' +
     '<div class="starrow">' + row + '</div>' +
@@ -663,7 +663,7 @@ function showSharePicker() {
   var body;
   if (!mine.length) {
     body = '<div class="msg"><span class="big">✏️</span>Nothing of yours to share yet.<br>' +
-      'Write a flavour first — sharing is always optional.' +
+      'Write a flavour first. Sharing is always optional.' +
       '<div style="margin-top:16px"><button class="btn" data-act="new-recipe">+ New flavour</button></div></div>';
   } else {
     body = '<div class="group">Which one?</div><div class="grid">' + mine.map(function (r) {
@@ -727,7 +727,7 @@ function showEditor(id) {
     '<h2 class="title" style="margin-top:8px">' + (id ? "Edit recipe" : "New flavour") + '</h2>' + SQUIGGLE +
     '<label for="e-name">Name</label><input id="e-name" placeholder="Cookie Dough" value="' + esc(EDIT.name) + '">' +
 
-    '<label>Icon — emoji, or your own photo</label>' +
+    '<label>Icon: emoji, or your own photo</label>' +
     '<div class="iconrow">' +
     '<input id="e-glyph" value="' + esc(EDIT.glyph) + '">' +
     '<span class="photo-prev" id="photo-prev"' + (EDIT.image ? ' style="display:block"' : "") + '>' +
@@ -748,7 +748,7 @@ function showEditor(id) {
     '<button class="chip" data-act="base-mode" data-id="custom" data-on="' + (EDIT.baseMode === "custom" ? 1 : 0) + '">My own base</button>' +
     '</div>' +
     '<div id="basebox" style="' + (EDIT.baseMode === "custom" ? "" : "display:none") + '">' +
-    '<div class="basehint">Anything goes — chocolate Fairlife, Greek yogurt, watermelon and Sprite…</div>' +
+    '<div class="basehint">Anything goes: chocolate Fairlife, Greek yogurt, watermelon and Sprite…</div>' +
     '<div style="height:7px"></div>' +
     '<div id="bings">' + EDIT.customBase.map(baseRowHTML).join("") + '</div>' +
     '<button class="btn ghost small" data-act="add-bing">+ base ingredient</button>' +
@@ -1060,7 +1060,7 @@ export const MANIFEST = JSON.stringify({
 // Shell cached so the app opens instantly and offline; the catalogue is
 // network-first so an approval is never hidden behind a stale cache.
 export const SERVICE_WORKER = `
-const SHELL = "churn-shell-v9";
+const SHELL = "churn-shell-v11";
 const FILES = ["/", "/manifest.webmanifest", "/icon-180.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {
