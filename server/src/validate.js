@@ -137,8 +137,10 @@ export function validateRating(raw) {
   if (typeof raw.raterId !== "string" || !UUID.test(raw.raterId)) {
     return { ok: false, error: "Missing rater id." };
   }
-  if (!Number.isInteger(raw.stars) || raw.stars < 1 || raw.stars > 5) {
-    return { ok: false, error: "Stars must be a whole number from 1 to 5." };
+  const stars = raw.stars;
+  const halfSteps = typeof stars === "number" && Number.isFinite(stars) && (stars * 2) % 1 === 0;
+  if (!halfSteps || stars < 0.5 || stars > 5) {
+    return { ok: false, error: "Stars go from \u00bd to 5, in half-star steps." };
   }
   return { ok: true, recipeId: raw.recipeId, raterId: raw.raterId, stars: raw.stars };
 }

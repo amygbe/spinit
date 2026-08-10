@@ -22,7 +22,9 @@ CREATE INDEX IF NOT EXISTS idx_submissions_iphash  ON submissions(ip_hash, creat
 CREATE TABLE IF NOT EXISTS ratings (
   recipe_id  TEXT NOT NULL,
   rater_id   TEXT NOT NULL,               -- anonymous device id (uuid)
-  stars      INTEGER NOT NULL CHECK (stars BETWEEN 1 AND 5),
+  -- Half-star steps: 0.5, 1, 1.5 … 5. The CHECK enforces the step so no
+  -- client can write 3.7 even if the validator ever regresses.
+  stars      REAL NOT NULL CHECK (stars >= 0.5 AND stars <= 5 AND (stars * 2) = CAST(stars * 2 AS INTEGER)),
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
   ip_hash    TEXT,                        -- salted, for rate limiting only

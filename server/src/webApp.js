@@ -129,10 +129,16 @@ export const WEB_APP = `<!doctype html>
   .rbtn:active { transform:translateY(3px); box-shadow:0 0 0 var(--ink) }
   .starrow { display:flex; gap:4px; margin:8px 0 2px }
   .star {
-    font-size:30px; line-height:1; background:none; border:none; padding:4px 3px;
-    color:var(--ink-mute); cursor:pointer; transition:transform .18s var(--bounce);
+    position:relative; font-size:30px; line-height:1; background:none; border:none;
+    padding:4px 3px; color:var(--ink-mute); cursor:pointer;
+    transition:transform .18s var(--bounce); touch-action:manipulation;
   }
   .star.on { color:#FFB800; text-shadow:0 2px 0 var(--ink) }
+  .star .sh {
+    position:absolute; inset:0; padding:4px 3px; color:#FFB800;
+    text-shadow:0 2px 0 var(--ink); pointer-events:none;
+    -webkit-clip-path:inset(0 50% 0 0); clip-path:inset(0 50% 0 0);
+  }
   .star:active { transform:scale(1.25) rotate(-8deg) }
   .ratemeta { font-size:12.5px; font-weight:800; color:var(--ink-mute); margin-top:4px }
   .scard .by.rated { color:#B8860B; font-weight:800 }
@@ -281,6 +287,24 @@ function logFor(id) {
   return DB.logs[id];
 }
 function tried(id) { return logFor(id).rating !== null; }
+
+var RATE_TAP = { id: null, stars: 0, timer: null };
+
+function applyRating(recipeId, stars) {
+  var prev = DB.myStars[recipeId];
+  DB.myStars[recipeId] = stars; save();
+  if (VIEW.name === "remote" && VIEW.id === recipeId) showRemote(recipeId);
+  sendRating(recipeId, stars).then(function (d) {
+    var w = (CAT || []).find(function (x) { return x.id === recipeId; });
+    if (w) w.rating = { avg: d.avg, count: d.count };
+    if (VIEW.name === "remote" && VIEW.id === recipeId) showRemote(recipeId);
+  }).catch(function (err) {
+    if (prev === undefined) delete DB.myStars[recipeId]; else DB.myStars[recipeId] = prev;
+    save();
+    if (VIEW.name === "remote" && VIEW.id === recipeId) showRemote(recipeId);
+    alert((err && err.error) || "Couldn't save your rating \u2014 try again in a bit.");
+  });
+}
 
 function sendRating(recipeId, stars) {
   return fetch("/rate", {
@@ -510,9 +534,14 @@ function ratingPanel(w) {
   var mine = DB.myStars[w.id] || 0;
   var row = "";
   for (var st = 1; st <= 5; st++) {
-    row += '<button class="star' + (mine >= st ? " on" : "") + '" data-act="rate-remote" data-id="' +
-      w.id + '" data-stars="' + st + '" aria-label="' + st + ' star">' +
-      (mine >= st ? "\u2605" : "\u2606") + '</button>';
+    var full = mine >= st, half = !full && mine >= st - 0.5;
+    // A half star is a gold star clipped to its left half, layered over the
+    // outline — same glyph, same metrics, so the halves line up exactly.
+    row += '<button class="star' + (full ? " on" : "") +
+      '" data-act="rate-remote" data-id="' + w.id + '" data-stars="' + st +
+      '" aria-label="' + st + ' stars \u00b7 tap twice for ' + (st - 0.5) + '">' +
+      '<span class="sb">' + (full ? "\u2605" : "\u2606") + '</span>' +
+      (half ? '<span class="sh">\u2605</span>' : "") + '</button>';
   }
   var meta;
   if (w.rating && w.rating.count) {
@@ -528,7 +557,7 @@ function ratingPanel(w) {
   } else {
     meta = mine ? 'You: \u2605 ' + mine + ' \u00b7 first rating in!' : "No ratings yet \u2014 be the first.";
   }
-  return '<div class="panel"><div class="sub">Rate it <span class="subhint">one per person \u00b7 tap to change</span></div>' +
+  return '<div class="panel"><div class="sub">Rate it <span class="subhint">tap once \u00b7 twice for a half</span></div>' +
     '<div class="starrow">' + row + '</div>' +
     '<div class="ratemeta">' + meta + '</div></div>';
 }
@@ -865,20 +894,20 @@ app.addEventListener("click", function (e) {
   }
   else if (act === "sort-cat") { SORT = id; renderCatalogue(); }
   else if (act === "rate-remote") {
+    // First tap arms a short timer; a second tap on the same star inside the
+    // window means "half". Nothing renders or sends until the timer settles,
+    // otherwise the re-render would destroy the button mid-double-tap.
     var pick = parseInt(el.getAttribute("data-stars"), 10);
-    var prev = DB.myStars[id];
-    DB.myStars[id] = pick; save();
-    if (VIEW.name === "remote" && VIEW.id === id) showRemote(id);
-    sendRating(id, pick).then(function (d) {
-      var w = (CAT || []).find(function (x) { return x.id === id; });
-      if (w) w.rating = { avg: d.avg, count: d.count };
-      if (VIEW.name === "remote" && VIEW.id === id) showRemote(id);
-    }).catch(function (err) {
-      if (prev === undefined) delete DB.myStars[id]; else DB.myStars[id] = prev;
-      save();
-      if (VIEW.name === "remote" && VIEW.id === id) showRemote(id);
-      alert((err && err.error) || "Couldn't save your rating \u2014 try again in a bit.");
-    });
+    if (RATE_TAP.timer && RATE_TAP.id === id && RATE_TAP.stars === pick) {
+      clearTimeout(RATE_TAP.timer); RATE_TAP.timer = null;
+      applyRating(id, pick - 0.5);
+    } else {
+      if (RATE_TAP.timer) clearTimeout(RATE_TAP.timer);
+      RATE_TAP = { id: id, stars: pick, timer: setTimeout(function () {
+        RATE_TAP.timer = null;
+        applyRating(id, pick);
+      }, 280) };
+    }
   }
   else if (act === "rate-up") nudgeRating(0.5);
   else if (act === "rate-down") nudgeRating(-0.5);
@@ -933,7 +962,7 @@ export const MANIFEST = JSON.stringify({
 // Shell cached so the app opens instantly and offline; the catalogue is
 // network-first so an approval is never hidden behind a stale cache.
 export const SERVICE_WORKER = `
-const SHELL = "churn-shell-v7";
+const SHELL = "churn-shell-v8";
 const FILES = ["/", "/manifest.webmanifest", "/icon-180.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {
