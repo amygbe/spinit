@@ -1,4 +1,4 @@
-import { LIMITS, validateSubmission } from "./validate.js";
+import { LIMITS, validateSubmission, validateRating } from "./validate.js";
 import { ADMIN_PAGE } from "./adminPage.js";
 import { WEB_APP, MANIFEST, SERVICE_WORKER } from "./webApp.js";
 import { ICON_512, ICON_180 } from "./icons.js";
@@ -13,6 +13,7 @@ import { ICON_512, ICON_180 } from "./icons.js";
 const CATALOGUE_MAX_AGE = 300;      // 5 min at the edge
 const RATE_WINDOW_MS = 60 * 60 * 1000;
 const RATE_MAX = 5;                 // submissions per IP per hour
+const RATING_MAX = 60;              // ratings per IP per hour — rating a lot is legit
 
 export default {
   async fetch(request, env) {
@@ -29,6 +30,9 @@ export default {
       }
       if (request.method === "POST" && pathname === "/submit") {
         return cors(await postSubmission(request, env));
+      }
+      if (request.method === "POST" && pathname === "/rate") {
+        return cors(await postRating(request, env));
       }
       // The web app: the free way onto anyone's phone. Same catalogue, no
       // App Store, and it installs to the home screen from Safari's Share menu.
@@ -88,12 +92,22 @@ async function getCatalogue(env) {
       LIMIT 500`
   ).all();
 
+  // Community ratings ride along on the same cached response, so showing
+  // averages costs one extra query per edge MISS — not per client.
+  const { results: ratingRows } = await env.DB.prepare(
+    `SELECT recipe_id, AVG(stars) AS avg, COUNT(*) AS n FROM ratings GROUP BY recipe_id`
+  ).all();
+  const ratingFor = new Map(
+    (ratingRows || []).map((r) => [r.recipe_id, { avg: Math.round(r.avg * 10) / 10, count: r.n }])
+  );
+
   // Origin comes from how the row got here, not from the author's display
   // name — otherwise anyone typing "Amy" would land in the curated section.
   const recipes = (results || []).map((row) => ({
     id: row.id,
     approvedAt: row.reviewed_at,
     origin: row.ip_hash ? "community" : "curated",
+    rating: ratingFor.get(row.id) || null,
     ...JSON.parse(row.payload),
   }));
 
@@ -153,6 +167,53 @@ async function postSubmission(request, env) {
   ).run();
 
   return json({ ok: true, id, status: "pending" }, 201);
+}
+
+// MARK: ratings
+
+/// One rating per (recipe, device). Re-rating replaces — never accumulates —
+/// so tapping stars twice can't stuff the ballot.
+async function postRating(request, env) {
+  const body = await request.json().catch(() => null);
+  const check = validateRating(body);
+  if (!check.ok) return json({ error: check.error }, 400);
+
+  // Only recipes actually in the catalogue can be rated.
+  const exists = await env.DB.prepare(
+    `SELECT id FROM submissions WHERE id = ? AND status = 'approved'`
+  ).bind(check.recipeId).first();
+  if (!exists) return json({ error: "No recipe with that id." }, 404);
+
+  const ipHash = await hashIP(request, env);
+  const since = Date.now() - RATE_WINDOW_MS;
+  const recent = await env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM ratings WHERE ip_hash = ? AND updated_at > ?`
+  ).bind(ipHash, since).first();
+  if (recent && recent.n >= RATING_MAX) {
+    return json({ error: "That's a lot of ratings at once. Try again in an hour." }, 429);
+  }
+
+  const now = Date.now();
+  await env.DB.prepare(
+    `INSERT INTO ratings (recipe_id, rater_id, stars, created_at, updated_at, ip_hash)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(recipe_id, rater_id)
+     DO UPDATE SET stars = excluded.stars, updated_at = excluded.updated_at, ip_hash = excluded.ip_hash`
+  ).bind(check.recipeId, check.raterId, check.stars, now, now, ipHash).run();
+
+  // Fresh numbers straight back, so the client can show the new average
+  // immediately instead of waiting out the catalogue's edge cache.
+  const agg = await env.DB.prepare(
+    `SELECT AVG(stars) AS avg, COUNT(*) AS n FROM ratings WHERE recipe_id = ?`
+  ).bind(check.recipeId).first();
+
+  return json({
+    ok: true,
+    recipeId: check.recipeId,
+    mine: check.stars,
+    avg: Math.round(agg.avg * 10) / 10,
+    count: agg.n,
+  });
 }
 
 /// Salted so the table never holds a reversible address — it exists only to

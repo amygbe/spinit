@@ -119,3 +119,26 @@ export function validateSubmission(raw) {
     },
   };
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Validate a community rating. Same philosophy as recipes: rebuild the
+ * object field-by-field, trust nothing.
+ * @returns {{ok: true, recipeId: string, raterId: string, stars: number} | {ok: false, error: string}}
+ */
+export function validateRating(raw) {
+  if (typeof raw !== "object" || raw === null) {
+    return { ok: false, error: "Expected an object." };
+  }
+  if (typeof raw.recipeId !== "string" || !UUID.test(raw.recipeId)) {
+    return { ok: false, error: "Which recipe?" };
+  }
+  if (typeof raw.raterId !== "string" || !UUID.test(raw.raterId)) {
+    return { ok: false, error: "Missing rater id." };
+  }
+  if (!Number.isInteger(raw.stars) || raw.stars < 1 || raw.stars > 5) {
+    return { ok: false, error: "Stars must be a whole number from 1 to 5." };
+  }
+  return { ok: true, recipeId: raw.recipeId, raterId: raw.raterId, stars: raw.stars };
+}

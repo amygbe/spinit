@@ -127,6 +127,15 @@ export const WEB_APP = `<!doctype html>
     cursor:pointer; line-height:1; box-shadow:0 3px 0 var(--ink); flex:none;
   }
   .rbtn:active { transform:translateY(3px); box-shadow:0 0 0 var(--ink) }
+  .starrow { display:flex; gap:4px; margin:8px 0 2px }
+  .star {
+    font-size:30px; line-height:1; background:none; border:none; padding:4px 3px;
+    color:var(--ink-mute); cursor:pointer; transition:transform .18s var(--bounce);
+  }
+  .star.on { color:#FFB800; text-shadow:0 2px 0 var(--ink) }
+  .star:active { transform:scale(1.25) rotate(-8deg) }
+  .ratemeta { font-size:12.5px; font-weight:800; color:var(--ink-mute); margin-top:4px }
+  .scard .by.rated { color:#B8860B; font-weight:800 }
   .rate-num { font-family:var(--display); font-size:30px; font-weight:700; color:var(--ink);
               min-width:72px; text-align:center; font-variant-numeric:tabular-nums; flex:1 }
   .rate-num small { font-family:var(--body); font-size:12px; font-weight:700; color:var(--ink-mute) }
@@ -211,6 +220,17 @@ export const WEB_APP = `<!doctype html>
 <script>
 "use strict";
 var KEY = "churn.shelf.v1";
+
+// Anonymous per-device identity for community ratings. Generated once,
+// never tied to a name — "one rating per person" means per device.
+var RATER = (function () {
+  var k = "spinit.rater.v1";
+  try {
+    var v = localStorage.getItem(k);
+    if (!v) { v = crypto.randomUUID(); localStorage.setItem(k, v); }
+    return v;
+  } catch (e) { return crypto.randomUUID(); }
+})();
 var UNITS = ["whole","grams","milliliters","teaspoons","tablespoons","cups","pinch","drops","scoops","toTaste"];
 var UNIT_LABEL = { whole:"", grams:"g", milliliters:"ml", teaspoons:"tsp", tablespoons:"tbsp", cups:"cup", pinch:"pinch", drops:"drops", scoops:"scoop", toTaste:"to taste" };
 var ROLES = ["flavour","mixIn","topping"];
@@ -236,6 +256,7 @@ var CLASSIC_BASE = [
 var app = document.getElementById("app");
 var CAT = null;
 var FILTER = "all";
+var SORT = "new";   // "new" | "top"
 var VIEW = { name: "shelf" };
 var EDIT = null;
 
@@ -252,6 +273,7 @@ function load() {
   return { recipes: [], logs: {} };
 }
 var DB = load();
+if (!DB.myStars) DB.myStars = {};   // recipeId -> my community stars (1-5)
 function save() { localStorage.setItem(KEY, JSON.stringify(DB)); }
 function recipeById(id) { return DB.recipes.find(function (r) { return r.id === id; }); }
 function logFor(id) {
@@ -259,6 +281,16 @@ function logFor(id) {
   return DB.logs[id];
 }
 function tried(id) { return logFor(id).rating !== null; }
+
+function sendRating(recipeId, stars) {
+  return fetch("/rate", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ recipeId: recipeId, raterId: RATER, stars: stars })
+  }).then(function (res) {
+    return res.json().then(function (d) { if (!res.ok) throw d; return d; });
+  });
+}
 
 // ---------- shared bits ----------
 
@@ -429,7 +461,10 @@ function renderCatalogue() {
       (onShelf(w) ? '<span class="badge dim">saved ✓</span>' : "") +
       tileHTML(w) +
       '<span class="name">' + esc(w.name) + '</span>' +
-      '<span class="by">by ' + esc(w.author) + '</span></div>';
+      '<span class="by">by ' + esc(w.author) + '</span>' +
+      (w.rating && w.rating.count
+        ? '<span class="by rated">\u2605 ' + fmtScore(w.rating.avg) + ' \u00b7 ' + w.rating.count + '</span>'
+        : "") + '</div>';
   }
   // Curated versus community comes from the server's origin field — how the
   // recipe got in, not what the author typed as their name.
@@ -441,8 +476,21 @@ function renderCatalogue() {
       return '<button class="chip" data-act="filter-cat" data-id="' + c + '" data-on="' + (FILTER === c ? 1 : 0) + '">' +
         (c === "all" ? "All" : CAT_LABEL[c]) + '</button>';
     }).join("") + '</div>';
+  chips += '<div class="basechips" style="margin-bottom:4px">' +
+    '<button class="chip" data-act="sort-cat" data-id="new" data-on="' + (SORT === "new" ? 1 : 0) + '">Newest</button>' +
+    '<button class="chip" data-act="sort-cat" data-id="top" data-on="' + (SORT === "top" ? 1 : 0) + '">Top rated</button></div>';
   var mine = pool.filter(function (w) { return w.origin !== "community"; });
   var rest = pool.filter(function (w) { return w.origin === "community"; });
+  if (SORT === "top") {
+    // Best first; unrated sink to the bottom, more ratings break ties.
+    var byRating = function (a, b) {
+      var ra = a.rating ? a.rating.avg : -1, rb = b.rating ? b.rating.avg : -1;
+      if (rb !== ra) return rb - ra;
+      return (b.rating ? b.rating.count : 0) - (a.rating ? a.rating.count : 0);
+    };
+    mine = mine.slice().sort(byRating);
+    rest = rest.slice().sort(byRating);
+  }
 
   app.innerHTML = header("cat") + chips +
     (mine.length ? '<div class="group">Amy&#39;s approved <span class="count">' + mine.length + '</span></div>' +
@@ -454,6 +502,35 @@ function renderCatalogue() {
     '<button class="btn wide" data-act="share-pick">Share one of yours</button>' +
     '</div>';
   window.scrollTo(0, 0);
+}
+
+/// My stars vs the community's — the private 0-10 spin score on the shelf
+/// stays a completely separate, on-device thing.
+function ratingPanel(w) {
+  var mine = DB.myStars[w.id] || 0;
+  var row = "";
+  for (var st = 1; st <= 5; st++) {
+    row += '<button class="star' + (mine >= st ? " on" : "") + '" data-act="rate-remote" data-id="' +
+      w.id + '" data-stars="' + st + '" aria-label="' + st + ' star">' +
+      (mine >= st ? "\u2605" : "\u2606") + '</button>';
+  }
+  var meta;
+  if (w.rating && w.rating.count) {
+    meta = 'Community: \u2605 ' + fmtScore(w.rating.avg) + ' from ' + w.rating.count +
+      (w.rating.count === 1 ? " rating" : " ratings");
+    if (mine) {
+      var d = mine - w.rating.avg;
+      meta += ' \u00b7 you: \u2605 ' + mine +
+        (Math.abs(d) < 0.05 ? " (right on the average)"
+          : d > 0 ? " (" + fmtScore(Math.abs(d)) + " above average)"
+                  : " (" + fmtScore(Math.abs(d)) + " below average)");
+    }
+  } else {
+    meta = mine ? 'You: \u2605 ' + mine + ' \u00b7 first rating in!' : "No ratings yet \u2014 be the first.";
+  }
+  return '<div class="panel"><div class="sub">Rate it <span class="subhint">one per person \u00b7 tap to change</span></div>' +
+    '<div class="starrow">' + row + '</div>' +
+    '<div class="ratemeta">' + meta + '</div></div>';
 }
 
 function showRemote(id) {
@@ -470,6 +547,7 @@ function showRemote(id) {
     '<div><h2 class="title">' + esc(w.name) + '</h2>' +
     '<div class="byline">by ' + esc(w.author) + '</div></div></div>' +
     '<div style="height:8px"></div>' +
+    ratingPanel(w) +
     ingredientPanels(w) +
     (w.method ? '<div class="method">' + esc(w.method) + '</div>' : "") +
     '<div class="actions"><button class="btn wide" data-act="add-shelf" data-id="' + id + '"' +
@@ -785,6 +863,23 @@ app.addEventListener("click", function (e) {
       origin: "saved", author: w.author });
     save(); showRemote(id);
   }
+  else if (act === "sort-cat") { SORT = id; renderCatalogue(); }
+  else if (act === "rate-remote") {
+    var pick = parseInt(el.getAttribute("data-stars"), 10);
+    var prev = DB.myStars[id];
+    DB.myStars[id] = pick; save();
+    if (VIEW.name === "remote" && VIEW.id === id) showRemote(id);
+    sendRating(id, pick).then(function (d) {
+      var w = (CAT || []).find(function (x) { return x.id === id; });
+      if (w) w.rating = { avg: d.avg, count: d.count };
+      if (VIEW.name === "remote" && VIEW.id === id) showRemote(id);
+    }).catch(function (err) {
+      if (prev === undefined) delete DB.myStars[id]; else DB.myStars[id] = prev;
+      save();
+      if (VIEW.name === "remote" && VIEW.id === id) showRemote(id);
+      alert((err && err.error) || "Couldn't save your rating \u2014 try again in a bit.");
+    });
+  }
   else if (act === "rate-up") nudgeRating(0.5);
   else if (act === "rate-down") nudgeRating(-0.5);
   else if (act === "clear-rate") { logFor(VIEW.id).rating = null; save(); showLocal(VIEW.id); }
@@ -838,7 +933,7 @@ export const MANIFEST = JSON.stringify({
 // Shell cached so the app opens instantly and offline; the catalogue is
 // network-first so an approval is never hidden behind a stale cache.
 export const SERVICE_WORKER = `
-const SHELL = "churn-shell-v6";
+const SHELL = "churn-shell-v7";
 const FILES = ["/", "/manifest.webmanifest", "/icon-180.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {

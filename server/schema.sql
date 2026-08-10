@@ -15,3 +15,19 @@ CREATE TABLE IF NOT EXISTS submissions (
 
 CREATE INDEX IF NOT EXISTS idx_submissions_status  ON submissions(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_submissions_iphash  ON submissions(ip_hash, created_at DESC);
+
+-- One community rating per person per recipe. "Person" is an anonymous
+-- per-device id the client generates once and keeps — no accounts, no PII.
+-- Re-rating replaces the old row (upsert on the primary key).
+CREATE TABLE IF NOT EXISTS ratings (
+  recipe_id  TEXT NOT NULL,
+  rater_id   TEXT NOT NULL,               -- anonymous device id (uuid)
+  stars      INTEGER NOT NULL CHECK (stars BETWEEN 1 AND 5),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  ip_hash    TEXT,                        -- salted, for rate limiting only
+  PRIMARY KEY (recipe_id, rater_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ratings_recipe ON ratings(recipe_id);
+CREATE INDEX IF NOT EXISTS idx_ratings_iphash ON ratings(ip_hash, updated_at DESC);
