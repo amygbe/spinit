@@ -1,0 +1,13 @@
+name = "spinit"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# Free plan. Nothing here can incur a charge: exceeding a limit makes requests
+# fail rather than bill. Do not add a paid binding without meaning to.
+[[d1_databases]]
+binding = "DB"
+database_name = "spinit"
+database_id = "63867e46-0ae5-4e00-9c0b-07c163881776"
+
+[observability]
+enabled = true
