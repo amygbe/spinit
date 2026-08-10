@@ -59,6 +59,26 @@ export const WEB_APP = `<!doctype html>
   header.top { display:flex; align-items:center; gap:11px; margin-bottom:12px }
   header.top img { width:42px; height:42px; border-radius:12px; box-shadow:0 3px 0 rgba(0,0,0,.35) }
 
+  .palbtn {
+    margin-left:auto; width:40px; height:40px; border-radius:14px; flex:none;
+    border:2px solid var(--on-dim); background:transparent; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:3px; padding:0;
+    transition:transform .18s var(--bounce);
+  }
+  .palbtn:active { transform:scale(.92) }
+  .palbtn span { width:11px; height:11px; border-radius:50%; display:block; box-shadow:0 0 0 1.5px rgba(0,0,0,.25) }
+  .palcard {
+    display:block; width:100%; text-align:left; border:2px solid var(--ink);
+    border-radius:18px; padding:14px 16px; margin-bottom:12px; cursor:pointer;
+    box-shadow:0 4px 0 var(--ink); transition:transform .18s var(--bounce), box-shadow .18s;
+  }
+  .palcard:active { transform:translateY(3px); box-shadow:0 1px 0 var(--ink) }
+  .palcard[data-on="1"] { outline:3px solid var(--pop); outline-offset:2px }
+  .paldots { display:flex; gap:6px; margin-bottom:8px }
+  .paldots i { width:22px; height:22px; border-radius:50%; box-shadow:0 0 0 1.5px rgba(0,0,0,.2) }
+  .palname { display:block; font-family:var(--display); font-weight:700; font-size:19px }
+  .palname em { font-style:normal; font-size:11px; font-weight:800; opacity:.6; text-transform:uppercase; letter-spacing:.06em }
+  .paldesc { display:block; font-size:12.5px; font-weight:700; margin-top:2px }
   .tabs { display:flex; gap:8px; margin-bottom:16px }
   .tab {
     flex:1; text-align:center; font-family:var(--display); font-size:16px; font-weight:700;
@@ -242,12 +262,59 @@ var UNIT_LABEL = { whole:"", grams:"g", milliliters:"ml", teaspoons:"tsp", table
 var ROLES = ["flavour","mixIn","topping"];
 var ROLE_LABEL = { base:"Base", flavour:"Flavour", mixIn:"Mix-ins", topping:"Toppings" };
 var ROLE_HINT = { base:"blend, then freeze 24h", flavour:"blend into the pint", mixIn:"fold in after the first spin", topping:"at the bowl" };
+// The six palettes from the design phase, straight out of Theme.swift.
+// Blue Raspberry is the original; Midnight is the dark one.
+var PALETTES = {
+  blueRaspberry: { label: "Blue Raspberry", desc: "The original. Royal blue, cream, and a yellow pop.",
+    vars: { "--ground":"#2B3AF0", "--on-ground":"#FFF6E3", "--on-dim":"#B9C0FF", "--card":"#FFF7E8",
+            "--ink":"#15104A", "--ink-soft":"#5A5490", "--ink-mute":"#5F5A93",
+            "--pop":"#FFD426", "--on-pop":"#15104A", "--line":"rgba(21,16,74,.10)" } },
+  slushie: { label: "Slushie", desc: "Brighter and colder, with a magenta pop.",
+    vars: { "--ground":"#00A8E8", "--on-ground":"#04263B", "--on-dim":"#075C86", "--card":"#F2FBFF",
+            "--ink":"#05304A", "--ink-soft":"#34627E", "--ink-mute":"#45708C",
+            "--pop":"#D50F63", "--on-pop":"#FFFFFF", "--line":"rgba(5,48,74,.10)" } },
+  blueberry: { label: "Blueberry", desc: "Deeper blue, warmed up with orange.",
+    vars: { "--ground":"#2012C4", "--on-ground":"#EFEBFF", "--on-dim":"#A79BFF", "--card":"#F4F1FF",
+            "--ink":"#170A56", "--ink-soft":"#4A3E8E", "--ink-mute":"#574B9C",
+            "--pop":"#FF9E00", "--on-pop":"#2A1600", "--line":"rgba(23,10,86,.10)" } },
+  freezie: { label: "Freezie", desc: "The pale icy one.",
+    vars: { "--ground":"#CFEDFF", "--on-ground":"#093A5E", "--on-dim":"#3E6E94", "--card":"#FDFEFF",
+            "--ink":"#0A2E4A", "--ink-soft":"#38607F", "--ink-mute":"#486F8D",
+            "--pop":"#C7137A", "--on-pop":"#FFFFFF", "--line":"rgba(10,46,74,.10)" } },
+  razz: { label: "Razz", desc: "The raspberry half, with royal blue as the pop.",
+    vars: { "--ground":"#C81355", "--on-ground":"#FFF0F6", "--on-dim":"#FFA9C9", "--card":"#FFF5F9",
+            "--ink":"#4A0A26", "--ink-soft":"#8E3A5E", "--ink-mute":"#964063",
+            "--pop":"#2B3AF0", "--on-pop":"#FFFFFF", "--line":"rgba(74,10,38,.10)" } },
+  midnight: { label: "Midnight", desc: "The dark one.",
+    vars: { "--ground":"#0B1030", "--on-ground":"#EAF0FF", "--on-dim":"#8FA0D8", "--card":"#1B2250",
+            "--ink":"#EFF3FF", "--ink-soft":"#BAC5F0", "--ink-mute":"#A2B0E6",
+            "--pop":"#FFD426", "--on-pop":"#201A00", "--line":"rgba(239,243,255,.14)" } }
+};
+var PALETTE_KEY = "spinit.palette.v1";
+var CUR_PALETTE = "blueRaspberry";
+
+function applyPalette(name, persist) {
+  var pal = PALETTES[name] || PALETTES.blueRaspberry;
+  var rootStyle = document.documentElement.style;
+  Object.keys(pal.vars).forEach(function (k) { rootStyle.setProperty(k, pal.vars[k]); });
+  var tc = document.querySelector('meta[name="theme-color"]');
+  if (tc) tc.setAttribute("content", pal.vars["--ground"]);
+  CUR_PALETTE = PALETTES[name] ? name : "blueRaspberry";
+  if (persist) { try { localStorage.setItem(PALETTE_KEY, CUR_PALETTE); } catch (e) {} }
+}
+applyPalette((function () { try { return localStorage.getItem(PALETTE_KEY); } catch (e) { return null; } })(), false);
+
 var SWATCH = {
   banana:"#FFC42E", vanilla:"#FF9F45", pumpkin:"#FF6B1A", mango:"#FF8C1A", cherry:"#E22B47",
   berry:"#E8336F", bubblegum:"#FF7BC1", grape:"#8B4DE8", lavender:"#B79CFF", blueberry:"#4353FF",
   sky:"#3BB8FF", mint:"#00D49B", matcha:"#86C232", olive:"#9BC72B", cocoa:"#B0632F",
   coffee:"#8B5E3C", charcoal:"#494A5A", snow:"#F2EDE4",
 };
+
+// What the editor offers: eight bold ones plus a neutral light and dark.
+// SWATCH keeps every historical colour so old recipes still render.
+var PICKER_SWATCHES = ["cherry", "mango", "banana", "mint", "sky", "grape",
+                       "bubblegum", "cocoa", "snow", "charcoal"];
 
 var CATS = ["protein", "cream", "sorbet"];
 var CAT_LABEL = { protein: "Protein / froyo", cream: "Ice cream", sorbet: "Sorbet" };
@@ -329,7 +396,11 @@ function tileHTML(r) {
 }
 
 function header(tab) {
-  return '<header class="top"><img src="/icon-180.png" alt=""><div><h1>Spin It</h1>' + SQUIGGLE + '</div></header>' +
+  return '<header class="top"><img src="/icon-180.png" alt=""><div><h1>Spin It</h1>' + SQUIGGLE + '</div>' +
+    '<button class="palbtn" data-act="palette-open" aria-label="Colour themes">' +
+    '<span style="background:' + PALETTES[CUR_PALETTE].vars["--pop"] + '"></span>' +
+    '<span style="background:' + PALETTES[CUR_PALETTE].vars["--card"] + '"></span>' +
+    '</button></header>' +
     '<div class="tabs">' +
     '<button class="tab" data-act="nav-shelf" data-on="' + (tab === "shelf" ? 1 : 0) + '">My recipes</button>' +
     '<button class="tab" data-act="nav-cat" data-on="' + (tab === "cat" ? 1 : 0) + '">Explore</button>' +
@@ -607,12 +678,37 @@ function showSharePicker() {
   window.scrollTo(0, 0);
 }
 
+// ---------- palettes ----------
+
+function showPalettes() {
+  VIEW = { name: "palettes" };
+  var cards = Object.keys(PALETTES).map(function (k) {
+    var pal = PALETTES[k], v = pal.vars, on = k === CUR_PALETTE;
+    return '<div class="palcard" data-act="palette-pick" data-id="' + k + '" data-on="' + (on ? 1 : 0) + '"' +
+      ' style="background:' + v["--card"] + '; color:' + v["--ink"] + '">' +
+      '<span class="paldots">' +
+        '<i style="background:' + v["--ground"] + '"></i>' +
+        '<i style="background:' + v["--pop"] + '"></i>' +
+        '<i style="background:' + v["--on-dim"] + '"></i>' +
+      '</span>' +
+      '<span class="palname">' + pal.label + (on ? ' <em>current</em>' : '') + '</span>' +
+      '<span class="paldesc" style="color:' + v["--ink-mute"] + '">' + pal.desc + '</span>' +
+      '</div>';
+  }).join("");
+  app.innerHTML =
+    '<button class="btn ghost small" data-act="nav-shelf">\u2039 Back</button>' +
+    '<h2 class="title" style="margin-top:8px">Colour themes</h2>' + SQUIGGLE +
+    '<div class="byline" style="margin:6px 0 10px">Pick a mood \u00b7 it sticks on this device.</div>' +
+    cards;
+  window.scrollTo(0, 0);
+}
+
 // ---------- editor ----------
 
 function showEditor(id) {
   var r = id ? recipeById(id) : null;
   EDIT = r ? JSON.parse(JSON.stringify(r))
-           : { id: crypto.randomUUID(), name: "", glyph: "🍨", swatch: "vanilla", image: null,
+           : { id: crypto.randomUUID(), name: "", glyph: "🍨", swatch: "banana", image: null,
                category: "cream", method: "", ingredients: [], customBase: null, origin: "mine",
                author: localStorage.getItem("churnName") || "" };
   if (!EDIT.category) EDIT.category = "cream";
@@ -621,7 +717,7 @@ function showEditor(id) {
   if (!EDIT.customBase || !EDIT.customBase.length) EDIT.customBase = [{ name: "", amount: null, unit: "whole", role: "base" }];
   VIEW = { name: "editor", id: id };
 
-  var sw = Object.keys(SWATCH).map(function (k) {
+  var sw = PICKER_SWATCHES.map(function (k) {
     return '<button class="sw" data-act="pick-swatch" data-id="' + k + '" data-on="' + (EDIT.swatch === k ? 1 : 0) +
       '" style="background:' + SWATCH[k] + '" aria-label="' + k + '"></button>';
   }).join("");
@@ -893,6 +989,8 @@ app.addEventListener("click", function (e) {
     save(); showRemote(id);
   }
   else if (act === "sort-cat") { SORT = id; renderCatalogue(); }
+  else if (act === "palette-open") showPalettes();
+  else if (act === "palette-pick") { applyPalette(id, true); showPalettes(); }
   else if (act === "rate-remote") {
     // First tap arms a short timer; a second tap on the same star inside the
     // window means "half". Nothing renders or sends until the timer settles,
@@ -962,7 +1060,7 @@ export const MANIFEST = JSON.stringify({
 // Shell cached so the app opens instantly and offline; the catalogue is
 // network-first so an approval is never hidden behind a stale cache.
 export const SERVICE_WORKER = `
-const SHELL = "churn-shell-v8";
+const SHELL = "churn-shell-v9";
 const FILES = ["/", "/manifest.webmanifest", "/icon-180.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {
