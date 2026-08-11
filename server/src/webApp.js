@@ -141,18 +141,6 @@ export const WEB_APP = `<!doctype html>
   h2.title { font-family:var(--display); font-size:24px; font-weight:700; margin:0; line-height:1.1; overflow-wrap:anywhere }
   .byline { color:var(--on-dim); font-size:12.5px; font-weight:600 }
 
-  .raterow {
-    display:flex; align-items:center; gap:10px; margin:10px 0;
-    background:var(--card); color:var(--ink); border:2px solid var(--ink); border-radius:18px;
-    padding:8px 13px; box-shadow:0 4px 0 var(--ink);
-  }
-  .raterow .lbl { font-size:13px; font-weight:800; color:var(--ink-mute) }
-  .rbtn {
-    width:38px; height:38px; border-radius:13px; border:2px solid var(--ink);
-    background:var(--pop); color:var(--on-pop); font-size:21px; font-weight:800;
-    cursor:pointer; line-height:1; box-shadow:0 3px 0 var(--ink); flex:none;
-  }
-  .rbtn:active { transform:translateY(3px); box-shadow:0 0 0 var(--ink) }
   .starrow { display:flex; gap:4px; margin:8px 0 2px }
   .star {
     position:relative; font-size:30px; line-height:1; background:none; border:none;
@@ -397,7 +385,21 @@ function load() {
   return { recipes: [], logs: {} };
 }
 var DB = load();
-if (!DB.myStars) DB.myStars = {};   // recipeId -> my community stars (1-5)
+if (!DB.myStars) DB.myStars = {};   // recipeId -> my community stars (0.5-5)
+
+// Personal ratings used to be out of 10. Stars are out of 5, so halve any
+// existing score once and mark the shelf as migrated. Without this an old
+// 8/10 would silently read as 8 stars.
+if (DB.v !== 2) {
+  Object.keys(DB.logs || {}).forEach(function (id) {
+    var lg = DB.logs[id];
+    if (lg && typeof lg.rating === "number") {
+      lg.rating = Math.max(0.5, Math.min(5, Math.round(lg.rating) / 2));
+    }
+  });
+  DB.v = 2;
+  save();
+}
 function save() { localStorage.setItem(KEY, JSON.stringify(DB)); }
 function recipeById(id) { return DB.recipes.find(function (r) { return r.id === id; }); }
 function logFor(id) {
@@ -405,8 +407,6 @@ function logFor(id) {
   return DB.logs[id];
 }
 function tried(id) { return logFor(id).rating !== null; }
-
-var RATE_TAP = { id: null, stars: 0, timer: null };
 
 function applyRating(recipeId, stars) {
   var prev = DB.myStars[recipeId];
@@ -422,6 +422,44 @@ function applyRating(recipeId, stars) {
     if (VIEW.name === "remote" && VIEW.id === recipeId) showRemote(recipeId);
     alert((err && err.error) || "Couldn't save your rating. Try again in a bit.");
   });
+}
+
+/// Five stars: a full glyph, a half (the same glyph clipped), or an outline.
+/// Shared by your own rating and the community one.
+function starRow(value, act, id) {
+  var out = "";
+  for (var st = 1; st <= 5; st++) {
+    var full = value >= st, half = !full && value >= st - 0.5;
+    out += '<button class="star' + (full ? " on" : "") + '" data-act="' + act +
+      '" data-id="' + (id || "") + '" data-stars="' + st +
+      '" aria-label="' + st + ' stars, press again for ' + (st - 0.5) + '">' +
+      '<span class="sb">' + (full ? "\u2605" : "\u2606") + '</span>' +
+      (half ? '<span class="sh">\u2605</span>' : "") + '</button>';
+  }
+  return '<div class="starrow">' + out + '</div>';
+}
+
+/// Pressing a star sets it; pressing the one you are already on drops to the
+/// half below, and pressing again returns to full. No double-tap and no timer,
+/// so it behaves the same under a thumb as under a mouse.
+function nextStars(current, pressed) {
+  return current === pressed ? pressed - 0.5 : pressed;
+}
+
+/// Community numbers for a recipe, if the catalogue knows it.
+function communityFor(id) {
+  if (!CAT) return null;
+  var w = CAT.find(function (x) { return x.id === id; });
+  return w && w.rating && w.rating.count ? w.rating : null;
+}
+
+/// Warm the catalogue so the shelf can show community averages. One request,
+/// edge-cached, and nothing polls.
+function ensureCatalogue(then) {
+  if (CAT !== null) return;
+  fetch("/catalogue").then(function (res) { return res.json(); })
+    .then(function (d) { CAT = d.recipes; if (then) then(); })
+    .catch(function () {});
 }
 
 function sendRating(recipeId, stars) {
@@ -506,11 +544,18 @@ function renderShelf() {
   function card(r) {
     var lg = logFor(r.id);
     var isTried = lg.rating !== null;
+    var comm = communityFor(r.id);
     return '<div class="scard' + (isTried ? "" : " untried") + '" data-act="open-local" data-id="' + r.id + '">' +
-      '<span class="badge">' + (isTried ? fmtScore(lg.rating) : "not yet") + '</span>' +
+      '<span class="badge">' + (isTried ? "\u2605 " + fmtScore(lg.rating) : "not yet") + '</span>' +
       tileHTML(r) +
-      '<span class="name">' + esc(r.name) + '</span></div>';
+      '<span class="name">' + esc(r.name) + '</span>' +
+      (comm ? '<span class="cstat">community \u2605 ' + fmtScore(comm.avg) +
+              ' \u00b7 ' + comm.count + '</span>' : "") +
+      '</div>';
   }
+
+  // Community averages live in the catalogue; fetch it once, then repaint.
+  ensureCatalogue(function () { if (VIEW.name === "shelf") renderShelf(); });
 
   var body = "";
   if (!DB.recipes.length) {
@@ -538,14 +583,20 @@ function showLocal(id) {
   VIEW = { name: "local", id: id };
   var lg = logFor(id);
 
-  var rate = '<div class="raterow"><span class="lbl">Rating</span>' +
-    '<button class="rbtn" data-act="rate-down">−</button>' +
-    (lg.rating !== null
-      ? '<span class="rate-num">' + fmtScore(lg.rating) + '<small> /10</small></span>'
-      : '<span class="rate-num none">not yet \u00b7 tap + </span>') +
-    '<button class="rbtn" data-act="rate-up">+</button>' +
-    (lg.rating !== null ? '<button class="clear-rate" data-act="clear-rate">clear</button>' : "") +
-    '</div>';
+  var comm = communityFor(VIEW.id);
+  var meta = lg.rating !== null
+    ? 'You: \u2605 ' + fmtScore(lg.rating)
+    : 'Not rated yet \u00b7 press a star';
+  if (comm) {
+    meta += ' \u00b7 community \u2605 ' + fmtScore(comm.avg) + ' from ' + comm.count +
+            (comm.count === 1 ? ' rating' : ' ratings');
+  }
+  var rate = '<div class="panel"><div class="sub">Your rating ' +
+    '<span class="subhint">press again for a half</span></div>' +
+    starRow(lg.rating || 0, "rate-local", VIEW.id) +
+    '<div class="ratemeta">' + meta +
+    (lg.rating !== null ? ' <button class="clear-rate" data-act="clear-rate">clear</button>' : "") +
+    '</div></div>';
 
   var open = lg.adjustments.filter(function (a) { return !a.done; }).length;
   var adjs = '<div class="group">Next time' + (open ? ' <span class="count">' + open + '</span>' : "") + '</div>' +
@@ -652,17 +703,7 @@ function renderCatalogue() {
 /// stays a completely separate, on-device thing.
 function ratingPanel(w) {
   var mine = DB.myStars[w.id] || 0;
-  var row = "";
-  for (var st = 1; st <= 5; st++) {
-    var full = mine >= st, half = !full && mine >= st - 0.5;
-    // A half star is a gold star clipped to its left half, layered over the
-    // outline — same glyph, same metrics, so the halves line up exactly.
-    row += '<button class="star' + (full ? " on" : "") +
-      '" data-act="rate-remote" data-id="' + w.id + '" data-stars="' + st +
-      '" aria-label="' + st + ' stars \u00b7 tap twice for ' + (st - 0.5) + '">' +
-      '<span class="sb">' + (full ? "\u2605" : "\u2606") + '</span>' +
-      (half ? '<span class="sh">\u2605</span>' : "") + '</button>';
-  }
+  var row = starRow(mine, "rate-remote", w.id);
   var meta;
   if (w.rating && w.rating.count) {
     meta = 'Community: \u2605 ' + fmtScore(w.rating.avg) + ' from ' + w.rating.count +
@@ -677,8 +718,8 @@ function ratingPanel(w) {
   } else {
     meta = mine ? 'You: \u2605 ' + mine + ' \u00b7 first rating in!' : "No ratings yet. Be the first!";
   }
-  return '<div class="panel"><div class="sub">Rate it <span class="subhint">tap once \u00b7 twice for a half</span></div>' +
-    '<div class="starrow">' + row + '</div>' +
+  return '<div class="panel"><div class="sub">Rate it ' +
+    '<span class="subhint">press again for a half</span></div>' + row +
     '<div class="ratemeta">' + meta + '</div></div>';
 }
 
@@ -933,12 +974,6 @@ function shareSend(id) {
 
 // ---------- events ----------
 
-function nudgeRating(delta) {
-  var lg = logFor(VIEW.id);
-  if (lg.rating === null) lg.rating = 8;
-  else lg.rating = Math.max(0, Math.min(10, lg.rating + delta));
-  save(); showLocal(VIEW.id);
-}
 
 app.addEventListener("change", function (e) {
   if (e.target.id === "e-photo" && e.target.files && e.target.files[0]) loadPhoto(e.target.files[0]);
@@ -1041,23 +1076,15 @@ app.addEventListener("click", function (e) {
   else if (act === "palette-open") showPalettes();
   else if (act === "palette-pick") { applyPalette(id, true); showPalettes(); }
   else if (act === "rate-remote") {
-    // First tap arms a short timer; a second tap on the same star inside the
-    // window means "half". Nothing renders or sends until the timer settles,
-    // otherwise the re-render would destroy the button mid-double-tap.
     var pick = parseInt(el.getAttribute("data-stars"), 10);
-    if (RATE_TAP.timer && RATE_TAP.id === id && RATE_TAP.stars === pick) {
-      clearTimeout(RATE_TAP.timer); RATE_TAP.timer = null;
-      applyRating(id, pick - 0.5);
-    } else {
-      if (RATE_TAP.timer) clearTimeout(RATE_TAP.timer);
-      RATE_TAP = { id: id, stars: pick, timer: setTimeout(function () {
-        RATE_TAP.timer = null;
-        applyRating(id, pick);
-      }, 280) };
-    }
+    applyRating(id, nextStars(DB.myStars[id] || 0, pick));
   }
-  else if (act === "rate-up") nudgeRating(0.5);
-  else if (act === "rate-down") nudgeRating(-0.5);
+  else if (act === "rate-local") {
+    var lgR = logFor(id);
+    lgR.rating = nextStars(lgR.rating === null ? 0 : lgR.rating, parseInt(el.getAttribute("data-stars"), 10));
+    save();
+    showLocal(id);
+  }
   else if (act === "clear-rate") { logFor(VIEW.id).rating = null; save(); showLocal(VIEW.id); }
   else if (act === "adj-toggle") {
     if (e.target.closest("[data-act='adj-del']")) return;
@@ -1109,7 +1136,7 @@ export const MANIFEST = JSON.stringify({
 // Shell cached so the app opens instantly and offline; the catalogue is
 // network-first so an approval is never hidden behind a stale cache.
 export const SERVICE_WORKER = `
-const SHELL = "churn-shell-v13";
+const SHELL = "churn-shell-v14";
 const FILES = ["/", "/manifest.webmanifest", "/icon-180.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {
