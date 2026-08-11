@@ -857,7 +857,10 @@ function logFor(id) {
   if (!DB.logs[id].spins) DB.logs[id].spins = [];
   return DB.logs[id];
 }
-function tried(id) { return logFor(id).rating !== null; }
+function tried(id) {
+  var lg = logFor(id);
+  return lg.rating !== null || (lg.spins && lg.spins.length > 0);
+}
 
 var SPIN_DRAFT = { stars: 0 };
 
@@ -1020,12 +1023,18 @@ function renderShelf() {
   var ideaList = DB.recipes.filter(function (r) { return !tried(r.id); });
   madeList.sort(function (a, b) { return (logFor(b.id).rating || 0) - (logFor(a.id).rating || 0); });
 
+  function shelfBadge(lg) {
+    if (lg.rating !== null) return "\u2605 " + fmtScore(lg.rating);
+    if (lg.spins && lg.spins.length) return "spun \u00d7" + lg.spins.length;
+    return "not yet";
+  }
+
   function card(r) {
     var lg = logFor(r.id);
-    var isTried = lg.rating !== null;
+    var isTried = tried(r.id);   // a spin counts, same rule as the grouping
     var comm = communityFor(r.id);
     return '<div class="scard' + (isTried ? "" : " untried") + '" data-act="open-local" data-id="' + r.id + '">' +
-      '<span class="badge">' + (isTried ? "\u2605 " + fmtScore(lg.rating) : "not yet") + '</span>' +
+      '<span class="badge">' + shelfBadge(lg) + '</span>' +
       tileHTML(r) +
       '<span class="name">' + esc(r.name) + '</span>' +
       (comm ? '<span class="cstat">community \u2605 ' + fmtScore(comm.avg) +
@@ -1041,7 +1050,7 @@ function renderShelf() {
     body = '<div class="msg"><span class="big">🍨</span>Nothing here yet.<br>' +
       'Write your own flavour, or save some from Explore.</div>';
   } else {
-    if (madeList.length) body += '<div class="group">Tried &amp; true <span class="count">' + madeList.length + '</span></div>' +
+    if (madeList.length) body += '<div class="group">Spun <span class="count">' + madeList.length + '</span></div>' +
       '<div class="grid">' + madeList.map(card).join("") + '</div>';
     if (ideaList.length) body += '<div class="group">On the list <span class="count">' + ideaList.length + '</span></div>' +
       '<div class="grid">' + ideaList.map(card).join("") + '</div>';
@@ -1686,7 +1695,7 @@ export const MANIFEST = JSON.stringify({
 // Shell cached so the app opens instantly and offline; the catalogue is
 // network-first so an approval is never hidden behind a stale cache.
 export const SERVICE_WORKER = `
-const SHELL = "churn-shell-v16";
+const SHELL = "churn-shell-v17";
 const FILES = ["/", "/manifest.webmanifest", "/icon-180.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {
