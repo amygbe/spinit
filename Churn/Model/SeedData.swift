@@ -12,8 +12,8 @@ extension Library {
         let house = Base(
             name: "Classic Base",
             ingredients: [
-                Ingredient("Fairlife 0% milk", amount: 400, unit: .milliliters, role: .base),
-                Ingredient("Monk fruit sweetener", amount: 40, unit: .grams, role: .base),
+                Ingredient("Milk", amount: 400, unit: .milliliters, role: .base),
+                Ingredient("Sugar, monk fruit, or any sweetener", amount: 40, unit: .grams, role: .base),
                 Ingredient("Salt", unit: .pinch, role: .base),
                 Ingredient("Xanthan gum", amount: 0.25, unit: .teaspoons, role: .base,
                            note: "Confirm your amount — this was blank in the log"),

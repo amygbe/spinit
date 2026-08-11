@@ -123,15 +123,21 @@ export const WEB_APP = `<!doctype html>
   .scard .badge.dim { color:var(--ink-mute) }
   .scard.untried .badge.dim { color:var(--on-dim) }
 
+  /* No box behind the emoji: it sits straight on the card, so nothing on a
+     card carries colour except the emoji itself. Photos keep their frame. */
   .tile {
     width:56px; height:56px; border-radius:18px; display:grid; place-items:center;
-    font-size:27px; background:#fff; border:2px solid rgba(21,16,74,.2); flex:none; overflow:hidden;
+    font-size:38px; background:none; border:0; flex:none; overflow:visible;
+  }
+  .tile.photo {
+    background:var(--card); border:2px solid var(--line); overflow:hidden;
   }
   .tile img { width:100%; height:100%; object-fit:cover; border-radius:inherit }
 
   /* ---------- compact recipe detail ---------- */
   .dethead { display:flex; align-items:center; gap:11px; margin:8px 0 2px }
-  .dethead .tile { width:46px; height:46px; border-radius:15px; font-size:24px }
+  .dethead .tile { width:46px; height:46px; border-radius:15px; font-size:33px }
+  .dethead .tile.photo { font-size:24px }
   h2.title { font-family:var(--display); font-size:24px; font-weight:700; margin:0; line-height:1.1; overflow-wrap:anywhere }
   .byline { color:var(--on-dim); font-size:12.5px; font-weight:600 }
 
@@ -293,10 +299,55 @@ var PALETTES = {
 var PALETTE_KEY = "spinit.palette.v1";
 var CUR_PALETTE = "blueRaspberry";
 
+// ---- colour maths, so card and text colours are derived, never guessed ----
+function _hx(h){ h = h.replace("#",""); return [0,2,4].map(function(i){ return parseInt(h.slice(i,i+2),16); }); }
+function _hex(a){ return "#" + a.map(function(v){ return Math.round(v).toString(16).padStart(2,"0"); }).join("").toUpperCase(); }
+function _mix(a,b,t){ var A=_hx(a), B=_hx(b); return _hex(A.map(function(v,i){ return v*(1-t)+B[i]*t; })); }
+function _lum(h){
+  var c = _hx(h).map(function(v){ v/=255; return v<=0.03928 ? v/12.92 : Math.pow((v+0.055)/1.055,2.4); });
+  return 0.2126*c[0] + 0.7152*c[1] + 0.0722*c[2];
+}
+function _ratio(a,b){ var x=_lum(a), y=_lum(b); if (y>x){ var t=x; x=y; y=t; } return (x+0.05)/(y+0.05); }
+/// The strongest readable text for a card, tinted with the palette so it never
+/// looks like pure black or pure white sitting on colour.
+function _textFor(card, ground){
+  var lt = _mix("#FFFFFF", ground, 0.08), dk = _mix("#000000", ground, 0.16);
+  return _ratio(lt,card) >= _ratio(dk,card) ? lt : dk;
+}
+/// As soft as a secondary colour can get while still clearing the target ratio.
+function _soften(text, card, target){
+  var lo = 0, hi = 1;
+  for (var i = 0; i < 22; i++) {
+    var m = (lo+hi)/2;
+    if (_ratio(_mix(text,card,m), card) >= target) lo = m; else hi = m;
+  }
+  return _mix(text, card, lo);
+}
+/// "Panel": push the card hard away from the ground so text has maximum room.
+/// Light grounds get a deep card; dark grounds get a pale one. Midnight is the
+/// exception -- a near-white card there would stop it being a dark theme, so it
+/// lifts just far enough to separate from the ground instead.
+function panelCard(ground, isDarkTheme){
+  if (isDarkTheme) return _mix(ground, "#FFFFFF", 0.14);
+  return _lum(ground) > 0.30 ? _mix(ground, "#000000", 0.74)
+                             : _mix(ground, "#FFFFFF", 0.90);
+}
+
 function applyPalette(name, persist) {
   var pal = PALETTES[name] || PALETTES.blueRaspberry;
   var rootStyle = document.documentElement.style;
   Object.keys(pal.vars).forEach(function (k) { rootStyle.setProperty(k, pal.vars[k]); });
+
+  // Card and the three ink levels are computed from the ground, so every
+  // palette lands on the same measured contrast rather than a hand-picked hex.
+  var ground = pal.vars["--ground"];
+  var card   = panelCard(ground, name === "midnight");
+  var ink    = _textFor(card, ground);
+  rootStyle.setProperty("--card", card);
+  rootStyle.setProperty("--ink", ink);
+  rootStyle.setProperty("--ink-soft", _soften(ink, card, 6.0));
+  rootStyle.setProperty("--ink-mute", _soften(ink, card, 4.6));
+  rootStyle.setProperty("--line", _mix(ink, card, 0.86));
   var tc = document.querySelector('meta[name="theme-color"]');
   if (tc) tc.setAttribute("content", pal.vars["--ground"]);
   CUR_PALETTE = PALETTES[name] ? name : "blueRaspberry";
@@ -320,8 +371,8 @@ var CATS = ["protein", "cream", "sorbet"];
 var CAT_LABEL = { protein: "Protein / froyo", cream: "Ice cream", sorbet: "Sorbet" };
 
 var CLASSIC_BASE = [
-  ["400 ml", "Fairlife 0% milk"],
-  ["40 g", "Monk fruit sweetener"],
+  ["400 ml", "Milk"],
+  ["40 g", "Sugar, monk fruit, or any sweetener"],
   ["pinch", "Salt"],
   ["¼ tsp", "Xanthan gum"],
 ];
@@ -389,10 +440,8 @@ var SQUIGGLE = '<svg class="squiggle" viewBox="0 0 104 9" preserveAspectRatio="n
   '<path d="M0 4.5 Q7.4 0 14.9 4.5 T29.7 4.5 T44.6 4.5 T59.4 4.5 T74.3 4.5 T89.1 4.5 T104 4.5" fill="none" style="stroke:var(--pop)" stroke-width="3" stroke-linecap="round"/></svg>';
 
 function tileHTML(r) {
-  if (r.image) return '<span class="tile"><img src="' + r.image + '" alt=""></span>';
-  var c = SWATCH[r.swatch] || SWATCH.vanilla;
-  return '<span class="tile" style="background:color-mix(in srgb, ' + c +
-    ' 30%, var(--card)); border-color:color-mix(in srgb, ' + c + ' 70%, var(--card))">' + esc(r.glyph) + '</span>';
+  if (r.image) return '<span class="tile photo"><img src="' + r.image + '" alt=""></span>';
+  return '<span class="tile">' + esc(r.glyph) + '</span>';
 }
 
 function header(tab) {
@@ -684,15 +733,20 @@ function showPalettes() {
   VIEW = { name: "palettes" };
   var cards = Object.keys(PALETTES).map(function (k) {
     var pal = PALETTES[k], v = pal.vars, on = k === CUR_PALETTE;
+    // Preview each card with the same computed surface the palette will
+    // actually produce, so what you see here is what you get.
+    var pc = panelCard(v["--ground"], k === "midnight");
+    var pi = _textFor(pc, v["--ground"]);
+    var pm = _soften(pi, pc, 4.6);
     return '<div class="palcard" data-act="palette-pick" data-id="' + k + '" data-on="' + (on ? 1 : 0) + '"' +
-      ' style="background:' + v["--card"] + '; color:' + v["--ink"] + '">' +
+      ' style="background:' + pc + '; color:' + pi + '">' +
       '<span class="paldots">' +
         '<i style="background:' + v["--ground"] + '"></i>' +
         '<i style="background:' + v["--pop"] + '"></i>' +
         '<i style="background:' + v["--on-dim"] + '"></i>' +
       '</span>' +
       '<span class="palname">' + pal.label + (on ? ' <em>current</em>' : '') + '</span>' +
-      '<span class="paldesc" style="color:' + v["--ink-mute"] + '">' + pal.desc + '</span>' +
+      '<span class="paldesc" style="color:' + pm + '">' + pal.desc + '</span>' +
       '</div>';
   }).join("");
   app.innerHTML =
@@ -717,10 +771,6 @@ function showEditor(id) {
   if (!EDIT.customBase || !EDIT.customBase.length) EDIT.customBase = [{ name: "", amount: null, unit: "whole", role: "base" }];
   VIEW = { name: "editor", id: id };
 
-  var sw = PICKER_SWATCHES.map(function (k) {
-    return '<button class="sw" data-act="pick-swatch" data-id="' + k + '" data-on="' + (EDIT.swatch === k ? 1 : 0) +
-      '" style="background:' + SWATCH[k] + '" aria-label="' + k + '"></button>';
-  }).join("");
 
   app.innerHTML =
     '<button class="btn ghost small" data-act="cancel-edit">‹ Cancel</button>' +
@@ -740,7 +790,6 @@ function showEditor(id) {
     '<div class="basechips">' + CATS.map(function (c) {
       return '<button class="chip" data-act="pick-cat" data-id="' + c + '" data-on="' + (EDIT.category === c ? 1 : 0) + '">' + CAT_LABEL[c] + '</button>';
     }).join("") + '</div>' +
-    '<label>Colour</label><div class="swgrid">' + sw + '</div>' +
 
     '<label>Base</label>' +
     '<div class="basechips">' +
@@ -754,7 +803,7 @@ function showEditor(id) {
     '<button class="btn ghost small" data-act="add-bing">+ base ingredient</button>' +
     '</div>' +
     '<div class="basehint" id="classichint" style="' + (EDIT.baseMode === "classic" ? "" : "display:none") + '">' +
-    '400 ml Fairlife 0% milk · 40 g monk fruit · pinch of salt · ¼ tsp xanthan gum</div>' +
+    '400 ml milk · 40 g sweetener · pinch of salt · ¼ tsp xanthan gum</div>' +
 
     '<label for="e-method">How do you make it?</label>' +
     '<textarea id="e-method" placeholder="Blend, freeze 24h, spin on Lite Ice Cream…">' + esc(EDIT.method) + '</textarea>' +
@@ -1060,7 +1109,7 @@ export const MANIFEST = JSON.stringify({
 // Shell cached so the app opens instantly and offline; the catalogue is
 // network-first so an approval is never hidden behind a stale cache.
 export const SERVICE_WORKER = `
-const SHELL = "churn-shell-v12";
+const SHELL = "churn-shell-v13";
 const FILES = ["/", "/manifest.webmanifest", "/icon-180.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {
