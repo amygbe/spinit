@@ -150,6 +150,18 @@ export const WEB_APP = `<!doctype html>
   h2.title { font-family:var(--display); font-size:24px; font-weight:700; margin:0; line-height:1.1; overflow-wrap:anywhere }
   .byline { color:var(--on-dim); font-size:12.5px; font-weight:600 }
 
+  .spinrow { position:relative; padding:8px 26px 8px 0; border-bottom:1.5px solid var(--line) }
+  .spinrow:last-of-type { border-bottom:0 }
+  .spindate { font-weight:800; font-size:12.5px; color:var(--ink-mute); margin-right:10px }
+  .spinstars { font-weight:800; font-size:13px; color:var(--ink) }
+  .spinnote { font-size:12.5px; color:var(--ink-soft); margin-top:2px }
+  .spinrow .x { position:absolute; right:0; top:6px; color:var(--ink-mute); border:0;
+                background:none; font-size:16px; cursor:pointer }
+  .spinform { border-top:1.5px solid var(--line); padding-top:10px; margin-top:6px }
+  .spinfield { margin-bottom:9px }
+  .spinfield label { display:block; font-size:11px; font-weight:800; letter-spacing:.04em;
+                     text-transform:uppercase; color:var(--ink-mute); margin-bottom:4px }
+  .spinform input[type="date"] { width:auto }
   .starrow { display:flex; gap:4px; margin:8px 0 2px }
   .star {
     position:relative; font-size:30px; line-height:1; background:none; border:none;
@@ -482,10 +494,13 @@ var FLAVOURS = {
       ["12.4 15.4","19.6 15.4","16 20.4"]) },
 
   cherry: { label:"Cherry", swatch:"cherry", i:
+    /* Both cherries carry the red: the first is the body, the second is a
+       part shape with the same colour, so neither is left hollow in colour mode. */
     I("M 9.6 17.2 C 12.5 17.2 14.8 19.5 14.8 22.4 C 14.8 25.3 12.5 27.6 9.6 27.6 C 6.7 27.6 4.4 25.3 4.4 22.4 C 4.4 19.5 6.7 17.2 9.6 17.2 Z",
-      ["M 22.2 18.2 C 25.1 18.2 27.4 20.5 27.4 23.4 C 27.4 26.3 25.1 28.6 22.2 28.6 C 19.3 28.6 17 26.3 17 23.4 C 17 20.5 19.3 18.2 22.2 18.2 Z",
-       "M 9.6 17.2 C 11.4 11.4 15.4 7.2 21.4 5.4", "M 22.2 18.2 C 22.4 13.4 22 9.2 21.4 5.4",
-       "M 21.4 5.4 C 23.4 2.8 27.2 2.8 28.4 4.4 C 27.2 6.9 24.2 7.8 21.8 6.9"]) },
+      ["M 9.6 17.2 C 11.4 11.4 15.4 7.2 21.4 5.4", "M 22.2 18.2 C 22.4 13.4 22 9.2 21.4 5.4",
+       "M 21.4 5.4 C 23.4 2.8 27.2 2.8 28.4 4.4 C 27.2 6.9 24.2 7.8 21.8 6.9"],
+      null,
+      [{ c:"cherry", d:"M 22.2 18.2 C 25.1 18.2 27.4 20.5 27.4 23.4 C 27.4 26.3 25.1 28.6 22.2 28.6 C 19.3 28.6 17 26.3 17 23.4 C 17 20.5 19.3 18.2 22.2 18.2 Z" }]) },
 
   blueberry: { label:"Blueberry", swatch:"blueberry", i:
     I("M 16 9.6 C 20.7 9.6 24.5 13.4 24.5 18.1 C 24.5 22.8 20.7 26.6 16 26.6 C 11.3 26.6 7.5 22.8 7.5 18.1 C 7.5 13.4 11.3 9.6 16 9.6 Z",
@@ -507,7 +522,7 @@ var FLAVOURS = {
     I("M 22.06 11.76 C 25.42 16.56 25.43 22.34 22.08 24.68 C 18.73 27.02 13.30 25.04 9.94 20.24 C 6.58 15.44 6.57 9.66 9.92 7.32 C 13.27 4.98 18.70 6.96 22.06 11.76 Z",
       ["M 10.8 8.6 C 14.6 11.6 12.6 15.0 15.6 17.4 C 18.6 19.8 17.6 21.4 21.2 23.4"]) },
 
-  peanut: { label:"Peanut butter", swatch:"coffee", i:
+  peanutButter: { label:"Peanut butter", swatch:"coffee", i:
     I("M 8.4 12.4 L 23.6 12.4 L 23.6 26.4 C 23.6 28 22.3 29.3 20.7 29.3 L 11.3 29.3 C 9.7 29.3 8.4 28 8.4 26.4 Z",
       ["M 6.8 7.6 L 25.2 7.6 L 25.2 12.4 L 6.8 12.4 Z",
        "M 11.6 19.6 C 14.2 17.6 17.8 17.6 20.4 19.6"]) },
@@ -527,6 +542,19 @@ var FLAVOURS = {
   nut: { label:"Almond / nut", swatch:"matcha", i:
     I("M 16 4.2 C 21.4 8.6 24.6 14.6 24.6 19.4 C 24.6 24.6 20.8 28 16 28 C 11.2 28 7.4 24.6 7.4 19.4 C 7.4 14.6 10.6 8.6 16 4.2 Z",
       ["M 16 6.6 C 14.2 12.4 14 21.4 16 27.4"]) },
+
+  peanut: { label:"Peanut", fill:"#E0A85C", i:
+    I("M 16 4.5 C 20 4.5 22.5 7.5 22.5 10.8 C 22.5 13 21.3 14.7 19.8 16 C 21.8 17.6 23.2 19.9 23.2 22.3 C 23.2 25.6 20 27.9 16 27.9 C 12 27.9 8.8 25.6 8.8 22.3 C 8.8 19.9 10.2 17.6 12.2 16 C 10.7 14.7 9.5 13 9.5 10.8 C 9.5 7.5 12 4.5 16 4.5 Z",
+      ["M 12.2 16 C 14.6 17.1 17.4 17.1 19.8 16",
+       "M 13.2 8.9 C 14.9 8 17.1 8 18.8 8.9"]) },
+
+  pistachio: { label:"Pistachio", fill:"#E8C79A", i:
+    /* Shell with the kernel showing through the crack; the lens is a part so
+       it goes pistachio-green in colour mode and stays line work in one-ink. */
+    I("M 16 4.6 C 21.6 4.6 25.4 9.4 25.4 15.4 C 25.4 21.9 21.2 27.4 16 27.4 C 10.8 27.4 6.6 21.9 6.6 15.4 C 6.6 9.4 10.4 4.6 16 4.6 Z",
+      [],
+      null,
+      [{ c:"matcha", d:"M 16 6.4 C 18.2 9.6 19 13.4 19 16 C 19 19.4 17.8 23.4 16 25.8 C 14.2 23.4 13 19.4 13 16 C 13 13.4 13.8 9.6 16 6.4 Z" }]) },
 
   cheesecake: { label:"Cheesecake", swatch:"vanilla", i:
     I("M 4.6 26.4 L 27.4 26.4 L 27.4 13.6 L 4.6 18.4 Z",
@@ -736,7 +764,7 @@ var GROUPS = [
   ["Tropical &amp; citrus",["mango","pineapple","kiwi","watermelon","coconut","lemon","lime","orange","avocado"]],
   ["Chocolate &amp; cookies",["chocolate","chocoBanana","cookie","oreo","brownie","caramel"]],
   ["Bakery &amp; sweets", ["cheesecake","cupcake","donut","waffle","marshmallow","lollipop","sprinkles","sorbet","softserve"]],
-  ["Garden, nuts &amp; grain",["pumpkin","nut","peanut","oat","popcorn","olive","protein"]],
+  ["Garden, nuts &amp; grain",["pumpkin","nut","peanut","pistachio","peanutButter","oat","popcorn","olive","protein"]],
   ["Spice, floral &amp; drinks",["vanilla","cinnamon","lavender","matcha","mint","coffee","tea","boba","soda","honey"]],
   ["Not a flavour",      ["fish"]]
 ];
@@ -795,12 +823,12 @@ function load() {
   return { recipes: [], logs: {} };
 }
 var DB = load();
-if (!DB.myStars) DB.myStars = {};   // recipeId -> my community stars (0.5-5)
+// (DB.myStars was folded into DB.logs by the v3 migration below)
 
 // Personal ratings used to be out of 10. Stars are out of 5, so halve any
 // existing score once and mark the shelf as migrated. Without this an old
 // 8/10 would silently read as 8 stars.
-if (DB.v !== 2) {
+if (!(DB.v >= 2)) {
   Object.keys(DB.logs || {}).forEach(function (id) {
     var lg = DB.logs[id];
     if (lg && typeof lg.rating === "number") {
@@ -810,27 +838,49 @@ if (DB.v !== 2) {
   DB.v = 2;
   save();
 }
+
+// One rating, not two. The community star (myStars) and the private score were
+// separate; they fold into the single log rating. Where both exist, the
+// community one wins, since the server already holds it for this device.
+if (!(DB.v >= 3)) {
+  Object.keys(DB.myStars || {}).forEach(function (id) {
+    if (DB.myStars[id]) logFor(id).rating = DB.myStars[id];
+  });
+  delete DB.myStars;
+  DB.v = 3;
+  save();
+}
 function save() { localStorage.setItem(KEY, JSON.stringify(DB)); }
 function recipeById(id) { return DB.recipes.find(function (r) { return r.id === id; }); }
 function logFor(id) {
   if (!DB.logs[id]) DB.logs[id] = { rating: null, adjustments: [] };
+  if (!DB.logs[id].spins) DB.logs[id].spins = [];
   return DB.logs[id];
 }
 function tried(id) { return logFor(id).rating !== null; }
 
+var SPIN_DRAFT = { stars: 0 };
+
+/// The one rating. It lives on the device; if the catalogue knows the recipe,
+/// the same press is also this device's community vote.
+function repaintRating(recipeId) {
+  if (VIEW.id !== recipeId) return;
+  if (VIEW.spinForm) return;
+  if (VIEW.name === "remote") showRemote(recipeId);
+  else if (VIEW.name === "local") showLocal(recipeId);
+}
 function applyRating(recipeId, stars) {
-  var prev = DB.myStars[recipeId];
-  DB.myStars[recipeId] = stars; save();
-  if (VIEW.name === "remote" && VIEW.id === recipeId) showRemote(recipeId);
+  logFor(recipeId).rating = stars;
+  save();
+  repaintRating(recipeId);
+  var inCat = (CAT || []).some(function (x) { return x.id === recipeId; });
+  if (!inCat) return;
   sendRating(recipeId, stars).then(function (d) {
-    var w = (CAT || []).find(function (x) { return x.id === recipeId; });
+    var w = CAT.find(function (x) { return x.id === recipeId; });
     if (w) w.rating = { avg: d.avg, count: d.count };
-    if (VIEW.name === "remote" && VIEW.id === recipeId) showRemote(recipeId);
-  }).catch(function (err) {
-    if (prev === undefined) delete DB.myStars[recipeId]; else DB.myStars[recipeId] = prev;
-    save();
-    if (VIEW.name === "remote" && VIEW.id === recipeId) showRemote(recipeId);
-    alert((err && err.error) || "Couldn't save your rating. Try again in a bit.");
+    repaintRating(recipeId);
+  }).catch(function () {
+    // Your rating stays; the community average just catches your next press.
   });
 }
 
@@ -908,6 +958,22 @@ function header(tab) {
 }
 
 function fmtScore(v) { return v === Math.round(v) ? String(v) : v.toFixed(1); }
+
+/// Today as YYYY-MM-DD in local time (toISOString would drift near midnight).
+function todayISO() {
+  var d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") +
+         "-" + String(d.getDate()).padStart(2, "0");
+}
+/// A stored YYYY-MM-DD, shown the way a person says it.
+function fmtDay(iso) {
+  var q = (iso || "").split("-");
+  if (q.length !== 3) return iso || "";
+  var d = new Date(+q[0], +q[1] - 1, +q[2]);
+  var opts = { month: "short", day: "numeric" };
+  if (+q[0] !== new Date().getFullYear()) opts.year = "numeric";
+  return d.toLocaleDateString(undefined, opts);
+}
 
 function measure(i) {
   var unit = UNIT_LABEL[i.unit] !== undefined ? UNIT_LABEL[i.unit] : "";
@@ -993,7 +1059,8 @@ function renderShelf() {
 function showLocal(id) {
   var r = recipeById(id);
   if (!r) return renderShelf();
-  VIEW = { name: "local", id: id };
+  var keepForm = VIEW.name === "local" && VIEW.id === id && VIEW.spinForm;
+  VIEW = { name: "local", id: id, spinForm: !!keepForm };
   var lg = logFor(id);
 
   var comm = communityFor(VIEW.id);
@@ -1011,6 +1078,35 @@ function showLocal(id) {
     (lg.rating !== null ? ' <button class="clear-rate" data-act="clear-rate">clear</button>' : "") +
     '</div></div>';
 
+  // Every time you actually made it: date, how that batch came out, and what
+  // you changed. All on-device, like every other opinion.
+  var spinRows = (lg.spins || []).map(function (sp) {
+    return '<div class="spinrow">' +
+      '<span class="spindate">' + fmtDay(sp.date) + '</span>' +
+      (sp.stars ? '<span class="spinstars">\u2605 ' + fmtScore(sp.stars) + '</span>' : '') +
+      '<button class="x" data-act="spin-del" data-id="' + sp.id + '">\u00d7</button>' +
+      (sp.note ? '<div class="spinnote">' + esc(sp.note) + '</div>' : '') +
+      '</div>';
+  }).join("");
+  var spinForm = !VIEW.spinForm ? "" :
+    '<div class="spinform">' +
+    '<div class="spinfield"><label>When</label>' +
+    '<input type="date" id="sp-date" value="' + todayISO() + '" max="' + todayISO() + '"></div>' +
+    '<div class="spinfield"><label>How did this batch come out?</label>' +
+    '<div id="sp-stars">' + starRow(SPIN_DRAFT.stars, "spin-stars", VIEW.id) + '</div></div>' +
+    '<div class="spinfield"><label>Notes</label>' +
+    '<textarea id="sp-note" rows="2" placeholder="Used 30 g sweetener, added a pinch of espresso powder\u2026"></textarea></div>' +
+    '<div class="btnrow"><button class="btn small" data-act="spin-save">Save spin</button>' +
+    '<button class="btn ghost small" data-act="spin-cancel">Cancel</button></div>' +
+    '</div>';
+  var spins = '<div class="panel"><div class="sub">Spins ' +
+    '<span class="subhint">each time you make it</span></div>' +
+    (spinRows || (VIEW.spinForm ? "" : '<div class="ratemeta">No spins logged yet.</div>')) +
+    spinForm +
+    (VIEW.spinForm ? "" :
+      '<div style="margin-top:8px"><button class="btn small" data-act="spin-open">+ Log a spin</button></div>') +
+    '</div>';
+
   var open = lg.adjustments.filter(function (a) { return !a.done; }).length;
   var adjs = '<div class="group">Next time' + (open ? ' <span class="count">' + open + '</span>' : "") + '</div>' +
     lg.adjustments.map(function (a) {
@@ -1027,6 +1123,7 @@ function showLocal(id) {
     '<div><h2 class="title">' + esc(r.name) + '</h2>' +
     '<div class="byline">by ' + esc(r.author || "you") + '</div></div></div>' +
     rate +
+    spins +
     ingredientPanels(r) +
     (r.method ? '<div class="method">' + esc(r.method) + '</div>' : "") +
     adjs +
@@ -1115,7 +1212,7 @@ function renderCatalogue() {
 /// My stars vs the community's — the private 0-10 spin score on the shelf
 /// stays a completely separate, on-device thing.
 function ratingPanel(w) {
-  var mine = DB.myStars[w.id] || 0;
+  var mine = logFor(w.id).rating || 0;
   var row = starRow(mine, "rate-remote", w.id);
   var meta;
   if (w.rating && w.rating.count) {
@@ -1507,15 +1604,36 @@ app.addEventListener("click", function (e) {
   else if (act === "sort-cat") { SORT = id; renderCatalogue(); }
   else if (act === "palette-open") showPalettes();
   else if (act === "palette-pick") { applyPalette(id, true); showPalettes(); }
-  else if (act === "rate-remote") {
-    var pick = parseInt(el.getAttribute("data-stars"), 10);
-    applyRating(id, nextStars(DB.myStars[id] || 0, pick));
+  else if (act === "spin-open") { SPIN_DRAFT = { stars: 0 }; VIEW.spinForm = true; showLocal(VIEW.id); }
+  else if (act === "spin-cancel") { VIEW.spinForm = false; showLocal(VIEW.id); }
+  else if (act === "spin-stars") {
+    // Repaint only the star row: re-rendering the view would eat the note.
+    SPIN_DRAFT.stars = nextStars(SPIN_DRAFT.stars, parseInt(el.getAttribute("data-stars"), 10));
+    var box = document.getElementById("sp-stars");
+    if (box) box.innerHTML = starRow(SPIN_DRAFT.stars, "spin-stars", VIEW.id);
   }
-  else if (act === "rate-local") {
-    var lgR = logFor(id);
-    lgR.rating = nextStars(lgR.rating === null ? 0 : lgR.rating, parseInt(el.getAttribute("data-stars"), 10));
+  else if (act === "spin-save") {
+    var lgS = logFor(VIEW.id);
+    lgS.spins.unshift({
+      id: crypto.randomUUID(),
+      date: (document.getElementById("sp-date") || {}).value || todayISO(),
+      stars: SPIN_DRAFT.stars || null,
+      note: ((document.getElementById("sp-note") || {}).value || "").trim().slice(0, 300)
+    });
+    lgS.spins.sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+    VIEW.spinForm = false;
     save();
-    showLocal(id);
+    showLocal(VIEW.id);
+  }
+  else if (act === "spin-del") {
+    if (!confirm("Remove this spin?")) return;
+    var lgD = logFor(VIEW.id);
+    lgD.spins = lgD.spins.filter(function (x) { return x.id !== id; });
+    save();
+    showLocal(VIEW.id);
+  }
+  else if (act === "rate-remote" || act === "rate-local") {
+    applyRating(id, nextStars(logFor(id).rating || 0, parseInt(el.getAttribute("data-stars"), 10)));
   }
   else if (act === "clear-rate") { logFor(VIEW.id).rating = null; save(); showLocal(VIEW.id); }
   else if (act === "adj-toggle") {
@@ -1568,7 +1686,7 @@ export const MANIFEST = JSON.stringify({
 // Shell cached so the app opens instantly and offline; the catalogue is
 // network-first so an approval is never hidden behind a stale cache.
 export const SERVICE_WORKER = `
-const SHELL = "churn-shell-v15";
+const SHELL = "churn-shell-v16";
 const FILES = ["/", "/manifest.webmanifest", "/icon-180.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {

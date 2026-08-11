@@ -396,10 +396,13 @@ var FLAVOURS = {
       ["12.4 15.4","19.6 15.4","16 20.4"]) },
 
   cherry: { label:"Cherry", swatch:"cherry", i:
+    /* Both cherries carry the red: the first is the body, the second is a
+       part shape with the same colour, so neither is left hollow in colour mode. */
     I("M 9.6 17.2 C 12.5 17.2 14.8 19.5 14.8 22.4 C 14.8 25.3 12.5 27.6 9.6 27.6 C 6.7 27.6 4.4 25.3 4.4 22.4 C 4.4 19.5 6.7 17.2 9.6 17.2 Z",
-      ["M 22.2 18.2 C 25.1 18.2 27.4 20.5 27.4 23.4 C 27.4 26.3 25.1 28.6 22.2 28.6 C 19.3 28.6 17 26.3 17 23.4 C 17 20.5 19.3 18.2 22.2 18.2 Z",
-       "M 9.6 17.2 C 11.4 11.4 15.4 7.2 21.4 5.4", "M 22.2 18.2 C 22.4 13.4 22 9.2 21.4 5.4",
-       "M 21.4 5.4 C 23.4 2.8 27.2 2.8 28.4 4.4 C 27.2 6.9 24.2 7.8 21.8 6.9"]) },
+      ["M 9.6 17.2 C 11.4 11.4 15.4 7.2 21.4 5.4", "M 22.2 18.2 C 22.4 13.4 22 9.2 21.4 5.4",
+       "M 21.4 5.4 C 23.4 2.8 27.2 2.8 28.4 4.4 C 27.2 6.9 24.2 7.8 21.8 6.9"],
+      null,
+      [{ c:"cherry", d:"M 22.2 18.2 C 25.1 18.2 27.4 20.5 27.4 23.4 C 27.4 26.3 25.1 28.6 22.2 28.6 C 19.3 28.6 17 26.3 17 23.4 C 17 20.5 19.3 18.2 22.2 18.2 Z" }]) },
 
   blueberry: { label:"Blueberry", swatch:"blueberry", i:
     I("M 16 9.6 C 20.7 9.6 24.5 13.4 24.5 18.1 C 24.5 22.8 20.7 26.6 16 26.6 C 11.3 26.6 7.5 22.8 7.5 18.1 C 7.5 13.4 11.3 9.6 16 9.6 Z",
@@ -421,7 +424,7 @@ var FLAVOURS = {
     I("M 22.06 11.76 C 25.42 16.56 25.43 22.34 22.08 24.68 C 18.73 27.02 13.30 25.04 9.94 20.24 C 6.58 15.44 6.57 9.66 9.92 7.32 C 13.27 4.98 18.70 6.96 22.06 11.76 Z",
       ["M 10.8 8.6 C 14.6 11.6 12.6 15.0 15.6 17.4 C 18.6 19.8 17.6 21.4 21.2 23.4"]) },
 
-  peanut: { label:"Peanut butter", swatch:"coffee", i:
+  peanutButter: { label:"Peanut butter", swatch:"coffee", i:
     I("M 8.4 12.4 L 23.6 12.4 L 23.6 26.4 C 23.6 28 22.3 29.3 20.7 29.3 L 11.3 29.3 C 9.7 29.3 8.4 28 8.4 26.4 Z",
       ["M 6.8 7.6 L 25.2 7.6 L 25.2 12.4 L 6.8 12.4 Z",
        "M 11.6 19.6 C 14.2 17.6 17.8 17.6 20.4 19.6"]) },
@@ -441,6 +444,19 @@ var FLAVOURS = {
   nut: { label:"Almond / nut", swatch:"matcha", i:
     I("M 16 4.2 C 21.4 8.6 24.6 14.6 24.6 19.4 C 24.6 24.6 20.8 28 16 28 C 11.2 28 7.4 24.6 7.4 19.4 C 7.4 14.6 10.6 8.6 16 4.2 Z",
       ["M 16 6.6 C 14.2 12.4 14 21.4 16 27.4"]) },
+
+  peanut: { label:"Peanut", fill:"#E0A85C", i:
+    I("M 16 4.5 C 20 4.5 22.5 7.5 22.5 10.8 C 22.5 13 21.3 14.7 19.8 16 C 21.8 17.6 23.2 19.9 23.2 22.3 C 23.2 25.6 20 27.9 16 27.9 C 12 27.9 8.8 25.6 8.8 22.3 C 8.8 19.9 10.2 17.6 12.2 16 C 10.7 14.7 9.5 13 9.5 10.8 C 9.5 7.5 12 4.5 16 4.5 Z",
+      ["M 12.2 16 C 14.6 17.1 17.4 17.1 19.8 16",
+       "M 13.2 8.9 C 14.9 8 17.1 8 18.8 8.9"]) },
+
+  pistachio: { label:"Pistachio", fill:"#E8C79A", i:
+    /* Shell with the kernel showing through the crack; the lens is a part so
+       it goes pistachio-green in colour mode and stays line work in one-ink. */
+    I("M 16 4.6 C 21.6 4.6 25.4 9.4 25.4 15.4 C 25.4 21.9 21.2 27.4 16 27.4 C 10.8 27.4 6.6 21.9 6.6 15.4 C 6.6 9.4 10.4 4.6 16 4.6 Z",
+      [],
+      null,
+      [{ c:"matcha", d:"M 16 6.4 C 18.2 9.6 19 13.4 19 16 C 19 19.4 17.8 23.4 16 25.8 C 14.2 23.4 13 19.4 13 16 C 13 13.4 13.8 9.6 16 6.4 Z" }]) },
 
   cheesecake: { label:"Cheesecake", swatch:"vanilla", i:
     I("M 4.6 26.4 L 27.4 26.4 L 27.4 13.6 L 4.6 18.4 Z",
@@ -704,7 +720,7 @@ var GROUPS = [
   ["Tropical &amp; citrus",["mango","pineapple","kiwi","watermelon","coconut","lemon","lime","orange","avocado"]],
   ["Chocolate &amp; cookies",["chocolate","chocoBanana","cookie","oreo","brownie","caramel"]],
   ["Bakery &amp; sweets", ["cheesecake","cupcake","donut","waffle","marshmallow","lollipop","sprinkles","sorbet","softserve"]],
-  ["Garden, nuts &amp; grain",["pumpkin","nut","peanut","oat","popcorn","olive","protein"]],
+  ["Garden, nuts &amp; grain",["pumpkin","nut","peanut","pistachio","peanutButter","oat","popcorn","olive","protein"]],
   ["Spice, floral &amp; drinks",["vanilla","cinnamon","lavender","matcha","mint","coffee","tea","boba","soda","honey"]],
   ["Not a flavour",      ["fish"]]
 ];

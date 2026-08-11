@@ -35,9 +35,9 @@ const ICONS = new Set([
   "cheesecake", "cherry", "chocoBanana", "chocolate", "cinnamon", "coconut", "coffee",
   "cookie", "cupcake", "donut", "fish", "grape", "honey", "kiwi", "lavender", "lemon",
   "lime", "lollipop", "mango", "marshmallow", "matcha", "mint", "nut", "oat", "olive",
-  "orange", "oreo", "peach", "peanut", "pear", "pineapple", "pomegranate", "popcorn",
-  "protein", "pumpkin", "raspberry", "soda", "softserve", "sorbet", "sprinkles",
-  "strawberry", "tea", "vanilla", "waffle", "watermelon"
+  "orange", "oreo", "peach", "peanut", "peanutButter", "pear", "pineapple", "pistachio",
+  "pomegranate", "popcorn", "protein", "pumpkin", "raspberry", "soda", "softserve",
+  "sorbet", "sprinkles", "strawberry", "tea", "vanilla", "waffle", "watermelon"
 ]);
 
 const SPACE = 32;
