@@ -28,6 +28,18 @@ const SWATCHES = new Set([
   "sky", "charcoal", "snow",
 ]);
 
+// Flavour icon keys, mirroring FLAVOURS in webApp.js. An unknown key is
+// dropped rather than rejected, so an older client can still submit.
+const ICONS = new Set([
+  "apple", "avocado", "banana", "blackberry", "blueberry", "boba", "brownie", "caramel",
+  "cheesecake", "cherry", "chocoBanana", "chocolate", "cinnamon", "coconut", "coffee",
+  "cookie", "cupcake", "donut", "fish", "grape", "honey", "kiwi", "lavender", "lemon",
+  "lime", "lollipop", "mango", "marshmallow", "matcha", "mint", "nut", "oat", "olive",
+  "orange", "oreo", "peach", "peanut", "pear", "pineapple", "pomegranate", "popcorn",
+  "protein", "pumpkin", "raspberry", "soda", "softserve", "sorbet", "sprinkles",
+  "strawberry", "tea", "vanilla", "waffle", "watermelon"
+]);
+
 const SPACE = 32;
 const DELETE = 127;
 
@@ -112,6 +124,7 @@ export function validateSubmission(raw) {
       // default for anything that doesn't say.
       category: CATEGORIES.has(raw.category) ? raw.category : "cream",
       glyph: [...glyph].slice(0, 2).join(""),
+      icon: ICONS.has(raw.icon) ? raw.icon : null,
       swatch: SWATCHES.has(raw.swatch) ? raw.swatch : "vanilla",
       method: cleanString(raw.method, LIMITS.method),
       ingredients,
