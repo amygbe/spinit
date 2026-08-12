@@ -67,6 +67,11 @@ export const WEB_APP = `<!doctype html>
   }
   .palbtn:active { transform:scale(.92) }
   .palbtn span { width:11px; height:11px; border-radius:50%; display:block; box-shadow:0 0 0 1.5px rgba(0,0,0,.25) }
+  .tip { display:flex; align-items:flex-start; gap:14px }
+  .tipnum { font-family:var(--display); font-weight:700; font-size:34px; line-height:1;
+            color:var(--tipnum, var(--pop)); flex:none; min-width:32px; text-align:center }
+  .tiptext { font-family:var(--display); font-weight:600; font-size:16.5px; line-height:1.45;
+             color:var(--ink); padding-top:5px }
   .palcard {
     display:block; width:100%; text-align:left; border:2px solid var(--ink);
     border-radius:18px; padding:14px 16px; margin-bottom:12px; cursor:pointer;
@@ -134,10 +139,12 @@ export const WEB_APP = `<!doctype html>
   .ico .dot { stroke-width:3.4 }
   /* Two-tone: the silhouette floods with the icon's own colour, detail parts
      take theirs, and the line work stays palette ink. */
-  .ico-wrap { display:block; width:44px; height:44px; color:var(--ink) }
-  .ico .body { fill:var(--accent, currentColor); fill-opacity:.9; stroke:var(--ink) }
+  .ico-wrap { display:grid; place-items:center; width:48px; height:48px; padding:4px;
+              color:var(--ico-ink, var(--ink)); background:var(--ico-pad, transparent);
+              border-radius:14px }
+  .ico .body { fill:var(--accent, currentColor); fill-opacity:.9; stroke:var(--ico-ink, var(--ink)) }
   .ico .part { fill:var(--pc, currentColor) }
-  .dethead .ico-wrap { width:38px; height:38px }
+  .dethead .ico-wrap { width:40px; height:40px; padding:3px; border-radius:11px }
   .tile.photo {
     background:var(--card); border:2px solid var(--line); overflow:hidden;
   }
@@ -224,7 +231,7 @@ export const WEB_APP = `<!doctype html>
   .icogroup { display:grid; grid-template-columns:repeat(auto-fill,minmax(46px,1fr)); gap:6px }
   .icobtn { padding:5px; border-radius:13px; border:2px solid var(--line); background:var(--card);
             cursor:pointer; display:grid; place-items:center; transition:transform .15s var(--bounce) }
-  .icobtn .ico-wrap { width:30px; height:30px }
+  .icobtn .ico-wrap { width:32px; height:32px; padding:2px; border-radius:9px }
   .icobtn:active { transform:scale(.92) }
   .icobtn[data-on="1"] { border-color:var(--ink); box-shadow:0 3px 0 var(--ink) }
   .swgrid { display:grid; grid-template-columns:repeat(6, 1fr); gap:9px; padding:3px 0 }
@@ -344,10 +351,23 @@ function _soften(text, card, target){
 /// Light grounds get a deep card; dark grounds get a pale one. Midnight is the
 /// exception -- a near-white card there would stop it being a dark theme, so it
 /// lifts just far enough to separate from the ground instead.
+/// A pale colour must never fall below the target contrast against the card.
+function _ensure(c, card, target){
+  if (_ratio(c, card) >= target) return c;
+  var toward = _lum(card) > 0.4 ? "#000000" : "#FFFFFF";
+  var lo = 0, hi = 1;
+  for (var i = 0; i < 22; i++) {
+    var m = (lo + hi) / 2;
+    if (_ratio(_mix(c, toward, m), card) >= target) hi = m; else lo = m;
+  }
+  return _mix(c, toward, hi);
+}
 function panelCard(ground, isDarkTheme){
+  // Light card + dark ink on every theme; Midnight is the one dark theme and
+  // lifts instead. (Slushie and Freezie used to flip to dark cards, which put
+  // pale outlines around the coloured icons.)
   if (isDarkTheme) return _mix(ground, "#FFFFFF", 0.14);
-  return _lum(ground) > 0.30 ? _mix(ground, "#000000", 0.74)
-                             : _mix(ground, "#FFFFFF", 0.90);
+  return _mix(ground, "#FFFFFF", 0.90);
 }
 
 function applyPalette(name, persist) {
@@ -365,6 +385,14 @@ function applyPalette(name, persist) {
   rootStyle.setProperty("--ink-soft", _soften(ink, card, 6.0));
   rootStyle.setProperty("--ink-mute", _soften(ink, card, 4.6));
   rootStyle.setProperty("--line", _mix(ink, card, 0.86));
+
+  // Icons keep a dark outline everywhere. On Midnight the card is dark, so
+  // each icon sits on a small light pad instead of switching to pale lines.
+  var darkTheme = name === "midnight";
+  rootStyle.setProperty("--ico-ink", darkTheme ? _mix("#000000", ground, 0.16) : ink);
+  rootStyle.setProperty("--ico-pad", darkTheme ? _mix(ground, "#FFFFFF", 0.90) : "transparent");
+  // Numbered-list accents stay legible against the card in every theme.
+  rootStyle.setProperty("--tipnum", _ensure(pal.vars["--pop"], card, 3.0));
   var tc = document.querySelector('meta[name="theme-color"]');
   if (tc) tc.setAttribute("content", pal.vars["--ground"]);
   CUR_PALETTE = PALETTES[name] ? name : "blueRaspberry";
@@ -949,7 +977,7 @@ function tileHTML(r) {
 }
 
 function header(tab) {
-  return '<header class="top"><img src="/icon-180.png" alt=""><div><h1>Spin It</h1>' + SQUIGGLE + '</div>' +
+  return '<header class="top"><img src="/icon-180.png?v=2" alt=""><div><h1>Spin It</h1>' + SQUIGGLE + '</div>' +
     '<button class="palbtn" data-act="palette-open" aria-label="Colour themes">' +
     '<span style="background:' + PALETTES[CUR_PALETTE].vars["--pop"] + '"></span>' +
     '<span style="background:' + PALETTES[CUR_PALETTE].vars["--card"] + '"></span>' +
@@ -957,6 +985,7 @@ function header(tab) {
     '<div class="tabs">' +
     '<button class="tab" data-act="nav-shelf" data-on="' + (tab === "shelf" ? 1 : 0) + '">My recipes</button>' +
     '<button class="tab" data-act="nav-cat" data-on="' + (tab === "cat" ? 1 : 0) + '">Explore</button>' +
+    '<button class="tab" data-act="nav-tips" data-on="' + (tab === "tips" ? 1 : 0) + '">Spin tips</button>' +
     '</div>';
 }
 
@@ -1143,6 +1172,27 @@ function showLocal(id) {
       : "") +
     '<button class="btn danger" data-act="del-recipe" data-id="' + id + '">Remove</button>' +
     '</div>';
+  window.scrollTo(0, 0);
+}
+
+// ---------- spin tips ----------
+
+/// Amy's own advice for the best pint. Edit the list, redeploy, done.
+var TIPS = [
+  "Let the pint sit out for 10 to 15 minutes after the first spin so it can defrost a little.",
+  "No time to wait? Add a splash of milk and re-spin. It can take 2 or more re-spins to reach the best texture.",
+  "Add mix-ins before the texture is fully ready. The best moment is when it still looks a little pebbly."
+];
+
+function renderTips() {
+  VIEW = { name: "tips" };
+  app.innerHTML = header("tips") +
+    '<div class="group">Making the best pint</div>' +
+    TIPS.map(function (t, i) {
+      return '<div class="panel tip"><span class="tipnum">' + (i + 1) + '</span>' +
+        '<span class="tiptext">' + t + '</span></div>';
+    }).join("") +
+    '<div class="byline" style="margin-top:10px">Got a trick of your own? Put it in a recipe\u2019s method and share it.</div>';
   window.scrollTo(0, 0);
 }
 
@@ -1516,6 +1566,7 @@ app.addEventListener("click", function (e) {
   var id = el.getAttribute("data-id");
 
   if (act === "nav-shelf") renderShelf();
+  else if (act === "nav-tips") renderTips();
   else if (act === "nav-cat" || act === "retry-cat") { if (act === "retry-cat") CAT = null; renderCatalogue(); }
   else if (act === "open-local") showLocal(id);
   else if (act === "open-remote") showRemote(id);
@@ -1687,15 +1738,15 @@ export const MANIFEST = JSON.stringify({
   background_color: "#2B3AF0",
   theme_color: "#2B3AF0",
   icons: [
-    { src: "/icon-180.png", sizes: "180x180", type: "image/png" },
-    { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+    { src: "/icon-180.png?v=2", sizes: "180x180", type: "image/png" },
+    { src: "/icon-512.png?v=2", sizes: "512x512", type: "image/png", purpose: "any" },
   ],
 });
 
 // Shell cached so the app opens instantly and offline; the catalogue is
 // network-first so an approval is never hidden behind a stale cache.
 export const SERVICE_WORKER = `
-const SHELL = "churn-shell-v17";
+const SHELL = "churn-shell-v18";
 const FILES = ["/", "/manifest.webmanifest", "/icon-180.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {
