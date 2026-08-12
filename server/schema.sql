@@ -33,3 +33,9 @@ CREATE TABLE IF NOT EXISTS ratings (
 
 CREATE INDEX IF NOT EXISTS idx_ratings_recipe ON ratings(recipe_id);
 CREATE INDEX IF NOT EXISTS idx_ratings_iphash ON ratings(ip_hash, updated_at DESC);
+
+-- Small site settings, one JSON value per key. Currently just 'tips'.
+CREATE TABLE IF NOT EXISTS meta (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);

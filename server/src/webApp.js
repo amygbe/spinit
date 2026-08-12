@@ -68,8 +68,9 @@ export const WEB_APP = `<!doctype html>
   .palbtn:active { transform:scale(.92) }
   .palbtn span { width:11px; height:11px; border-radius:50%; display:block; box-shadow:0 0 0 1.5px rgba(0,0,0,.25) }
   .tip { display:flex; align-items:flex-start; gap:14px }
-  .tipnum { font-family:var(--display); font-weight:700; font-size:34px; line-height:1;
-            color:var(--tipnum, var(--pop)); flex:none; min-width:32px; text-align:center }
+  .tipnum { font-family:var(--display); font-weight:700; font-size:19px; line-height:1;
+            background:var(--pop); color:var(--on-pop); flex:none; width:38px; height:38px;
+            border-radius:999px; display:grid; place-items:center; box-shadow:0 3px 0 var(--ico-ink, var(--ink)) }
   .tiptext { font-family:var(--display); font-weight:600; font-size:16.5px; line-height:1.45;
              color:var(--ink); padding-top:5px }
   .palcard {
@@ -391,8 +392,6 @@ function applyPalette(name, persist) {
   var darkTheme = name === "midnight";
   rootStyle.setProperty("--ico-ink", darkTheme ? _mix("#000000", ground, 0.16) : ink);
   rootStyle.setProperty("--ico-pad", darkTheme ? _mix(ground, "#FFFFFF", 0.90) : "transparent");
-  // Numbered-list accents stay legible against the card in every theme.
-  rootStyle.setProperty("--tipnum", _ensure(pal.vars["--pop"], card, 3.0));
   var tc = document.querySelector('meta[name="theme-color"]');
   if (tc) tc.setAttribute("content", pal.vars["--ground"]);
   CUR_PALETTE = PALETTES[name] ? name : "blueRaspberry";
@@ -1177,20 +1176,32 @@ function showLocal(id) {
 
 // ---------- spin tips ----------
 
-/// Amy's own advice for the best pint. Edit the list, redeploy, done.
+/// Fallback if /tips is unreachable; the live list is edited from /admin.
 var TIPS = [
   "Let the pint sit out for 10 to 15 minutes after the first spin so it can defrost a little.",
   "No time to wait? Add a splash of milk and re-spin. It can take 2 or more re-spins to reach the best texture.",
   "Add mix-ins before the texture is fully ready. The best moment is when it still looks a little pebbly."
 ];
 
+var TIPS_REMOTE = null;
 function renderTips() {
   VIEW = { name: "tips" };
+  if (TIPS_REMOTE === null) {
+    app.innerHTML = header("tips") + '<div class="msg"><span class="spin"></span></div>';
+    fetch("/tips").then(function (res) { return res.json(); }).then(function (d) {
+      TIPS_REMOTE = (d && Array.isArray(d.tips) && d.tips.length) ? d.tips : TIPS;
+      if (VIEW.name === "tips") renderTips();
+    }).catch(function () {
+      TIPS_REMOTE = TIPS;
+      if (VIEW.name === "tips") renderTips();
+    });
+    return;
+  }
   app.innerHTML = header("tips") +
     '<div class="group">Making the best pint</div>' +
-    TIPS.map(function (t, i) {
+    TIPS_REMOTE.map(function (t, i) {
       return '<div class="panel tip"><span class="tipnum">' + (i + 1) + '</span>' +
-        '<span class="tiptext">' + t + '</span></div>';
+        '<span class="tiptext">' + esc(t) + '</span></div>';
     }).join("") +
     '<div class="byline" style="margin-top:10px">Got a trick of your own? Put it in a recipe\u2019s method and share it.</div>';
   window.scrollTo(0, 0);
@@ -1746,7 +1757,7 @@ export const MANIFEST = JSON.stringify({
 // Shell cached so the app opens instantly and offline; the catalogue is
 // network-first so an approval is never hidden behind a stale cache.
 export const SERVICE_WORKER = `
-const SHELL = "churn-shell-v18";
+const SHELL = "churn-shell-v19";
 const FILES = ["/", "/manifest.webmanifest", "/icon-180.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {

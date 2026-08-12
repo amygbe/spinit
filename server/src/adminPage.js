@@ -32,8 +32,11 @@ export const ADMIN_PAGE = `<!doctype html>
   ul { margin:0 0 10px; padding-left:19px }
   li { margin-bottom:2px }
   .row { display:flex; gap:8px; flex-wrap:wrap }
-  .ing { display:grid; grid-template-columns:1fr 68px 92px 96px 34px; gap:6px; margin-bottom:6px }
+  .ing { display:grid; grid-template-columns:1fr 68px 92px 96px 34px; gap:6px; margin-bottom:10px }
   .ing input, .ing select { margin-bottom:0 }
+  .ing .i-note { grid-column:1 / 4 }
+  .ing .opt { grid-column:4 / 6; align-self:center; font-size:13px; color:var(--muted); font-weight:700 }
+  .ing .opt input { width:auto; margin:0 4px 0 0; vertical-align:-2px }
   .lbl { font-size:13px; color:var(--muted); font-weight:700; margin:10px 0 4px }
   .empty { color:var(--dim); padding:28px 0; text-align:center }
   .pill { font-size:12px; font-weight:700; background:var(--ink); color:var(--pop);
@@ -54,6 +57,16 @@ export const ADMIN_PAGE = `<!doctype html>
   <button onclick="load()">Load</button>
   <button class="ghost" onclick="startNew()">New</button>
 </div>
+<div class="card">
+  <h2>Spin tips</h2>
+  <div class="by">One tip per line. These show on the app's Spin tips tab within about five minutes.</div>
+  <textarea id="tips-box" style="min-height:110px">Loading…</textarea>
+  <div class="row">
+    <button class="small" onclick="saveTips()">Save tips</button>
+    <span class="by" id="tips-msg" style="align-self:center;margin:0"></span>
+  </div>
+</div>
+
 <div id="out"></div>
 
 <script>
@@ -67,6 +80,8 @@ var ROLE_LABEL = { base:"Base", flavour:"Flavour", mixIn:"Mix-in", topping:"Topp
 var SWATCHES = ["mint","cocoa","banana","mango","vanilla","pumpkin","berry","matcha","olive","coffee","cherry","bubblegum","grape","lavender","blueberry","sky","charcoal","snow"];
 var CATS = ["protein","cream","sorbet"];
 var CAT_LABEL = { protein:"Protein / froyo", cream:"Ice cream", sorbet:"Sorbet" };
+// Generated from the FLAVOURS icon set; regenerate when icons change.
+var ICON_OPTIONS = [["","(emoji only)"],["nut","Almond / nut"],["apple","Apple"],["avocado","Avocado"],["banana","Banana"],["blackberry","Blackberry"],["blueberry","Blueberry"],["boba","Boba"],["brownie","Brownie"],["caramel","Caramel"],["cheesecake","Cheesecake"],["cherry","Cherry"],["chocolate","Chocolate"],["chocoBanana","Chocolate banana"],["cinnamon","Cinnamon"],["orange","Citrus"],["coconut","Coconut"],["coffee","Coffee"],["cookie","Cookie"],["cupcake","Cupcake"],["donut","Donut"],["fish","Fish"],["soda","Fizz"],["grape","Grape"],["honey","Honey"],["kiwi","Kiwi"],["lavender","Lavender"],["lemon","Lemon"],["lime","Lime"],["lollipop","Lollipop"],["mango","Mango"],["marshmallow","Marshmallow"],["matcha","Matcha"],["mint","Mint"],["oat","Oats"],["olive","Olive oil"],["peach","Peach"],["peanut","Peanut"],["peanutButter","Peanut butter"],["pear","Pear"],["pineapple","Pineapple"],["pistachio","Pistachio"],["pomegranate","Pomegranate"],["popcorn","Popcorn"],["protein","Protein"],["pumpkin","Pumpkin"],["raspberry","Raspberry"],["oreo","Sandwich"],["softserve","Soft serve"],["sorbet","Sorbet pop"],["sprinkles","Sprinkles"],["strawberry","Strawberry"],["tea","Tea"],["vanilla","Vanilla"],["waffle","Waffle"],["watermelon","Watermelon"]];
 
 function esc(s) {
   return String(s === null || s === undefined ? "" : s)
@@ -120,7 +135,9 @@ function viewCard(s, status) {
   return "<div class='card' id='card-" + s.id + "'>" +
     "<h2>" + esc(s.recipe.glyph) + " " + esc(s.name) + "</h2>" +
     "<div class='by'>by " + esc(s.author) + " · " + new Date(s.createdAt).toLocaleDateString() +
-      " · <b>" + esc(CAT_LABEL[s.recipe.category] || "Ice cream") + "</b></div>" +
+      " · <b>" + esc(CAT_LABEL[s.recipe.category] || "Ice cream") + "</b>" +
+      " · icon: <b>" + esc(s.recipe.icon || "emoji") + "</b>" +
+      " · <b>" + (s.recipe.customBase && s.recipe.customBase.length ? "custom" : "classic") + "</b> base</div>" +
     "<ul>" + ing + "</ul>" +
     (s.recipe.method ? "<p>" + esc(s.recipe.method) + "</p>" : "") +
     actions + "</div>";
@@ -137,18 +154,24 @@ function startEdit(id) {
 function startNew() {
   if (!token()) { alert("Paste your admin token first."); return; }
   var blank = { name:"", author:"", glyph:"🍨", swatch:"vanilla", category:"cream", method:"",
+                icon:null, customBase:null,
                 ingredients:[{ name:"", amount:null, unit:"whole", role:"flavour", note:"", isOptional:false }] };
   document.getElementById("out").insertAdjacentHTML("afterbegin", editForm("new", blank));
 }
 
 function editForm(id, r) {
-  var rows = r.ingredients.map(function (i, n) { return ingRow(id, n, i); }).join("");
+  var rows = r.ingredients.map(function (i, n) { return ingRow(id, n, i, false); }).join("");
+  var baseRows = (r.customBase || []).map(function (i, n) { return ingRow(id, n, i, true); }).join("");
   return "<div class='card' id='edit-" + id + "'>" +
     "<div class='lbl'>Name</div><input id='f-name-" + id + "' value='" + esc(r.name) + "'>" +
     "<div class='row'>" +
       "<div style='flex:1'><div class='lbl'>Author</div><input id='f-author-" + id + "' value='" + esc(r.author) + "'></div>" +
       "<div style='width:90px'><div class='lbl'>Emoji</div><input id='f-glyph-" + id + "' value='" + esc(r.glyph) + "'></div>" +
     "</div>" +
+    "<div class='lbl'>Icon (wins over the emoji)</div><select id='f-icon-" + id + "'>" +
+      ICON_OPTIONS.map(function (o) {
+        return "<option value='" + o[0] + "'" + (o[0] === (r.icon || "") ? " selected" : "") + ">" + o[1] + "</option>";
+      }).join("") + "</select>" +
     "<div class='lbl'>Category</div><select id='f-cat-" + id + "'>" +
       CATS.map(function (c) {
         return "<option value='" + c + "'" + (c === (r.category || "cream") ? " selected" : "") + ">" + CAT_LABEL[c] + "</option>";
@@ -158,59 +181,79 @@ function editForm(id, r) {
         return "<option value='" + s + "'" + (s === r.swatch ? " selected" : "") + ">" + s + "</option>";
       }).join("") + "</select>" +
     "<div class='lbl'>Method</div><textarea id='f-method-" + id + "'>" + esc(r.method) + "</textarea>" +
+    "<div class='lbl'>Custom base (leave empty to use the classic base)</div>" +
+    "<div id='f-base-" + id + "'>" + baseRows + "</div>" +
+    "<button class='small ghost' onclick=\\"addIng('" + id + "', true)\\">+ base ingredient</button>" +
     "<div class='lbl'>Ingredients</div><div id='f-ings-" + id + "'>" + rows + "</div>" +
-    "<button class='small ghost' onclick=\\"addIng('" + id + "')\\">+ ingredient</button>" +
+    "<button class='small ghost' onclick=\\"addIng('" + id + "', false)\\">+ ingredient</button>" +
     "<div class='row' style='margin-top:12px'>" +
       "<button onclick=\\"saveEdit('" + id + "')\\">Save</button>" +
       "<button class='ghost' onclick=\\"load()\\">Cancel</button>" +
     "</div></div>";
 }
 
-function ingRow(id, n, i) {
-  return "<div class='ing' data-row='" + n + "'>" +
+function ingRow(id, n, i, isBase) {
+  var roleCell = isBase
+    ? "<span class='pill' style='align-self:center;justify-self:center'>Base</span>"
+    : "<select class='i-role role'>" + ROLES.map(function (ro) {
+        return "<option value='" + ro + "'" + (ro === i.role ? " selected" : "") + ">" + esc(ROLE_LABEL[ro]) + "</option>";
+      }).join("") + "</select>";
+  return "<div class='ing" + (isBase ? " base" : "") + "' data-row='" + n + "'>" +
     "<input placeholder='Ingredient' class='i-name' value='" + esc(i.name) + "'>" +
     "<input placeholder='qty' class='i-amt' value='" + (i.amount === null || i.amount === undefined ? "" : i.amount) + "'>" +
     "<select class='i-unit'>" + UNITS.map(function (u) {
       return "<option value='" + u + "'" + (u === i.unit ? " selected" : "") + ">" + esc(UNIT_LABEL[u]) + "</option>";
     }).join("") + "</select>" +
-    "<select class='i-role role'>" + ROLES.map(function (ro) {
-      return "<option value='" + ro + "'" + (ro === i.role ? " selected" : "") + ">" + esc(ROLE_LABEL[ro]) + "</option>";
-    }).join("") + "</select>" +
+    roleCell +
     "<button class='small ghost' onclick='this.parentNode.remove()'>×</button>" +
+    "<input placeholder='note (optional)' class='i-note' value='" + esc(i.note || "") + "'>" +
+    "<label class='opt'><input type='checkbox' class='i-opt'" + (i.isOptional ? " checked" : "") + "> optional</label>" +
     "</div>";
 }
 
-function addIng(id) {
-  var box = document.getElementById("f-ings-" + id);
+function addIng(id, isBase) {
+  var box = document.getElementById((isBase ? "f-base-" : "f-ings-") + id);
   box.insertAdjacentHTML("beforeend",
-    ingRow(id, box.children.length, { name:"", amount:null, unit:"whole", role:"flavour", note:"", isOptional:false }));
+    ingRow(id, box.children.length, { name:"", amount:null, unit:"whole", role:(isBase ? "base" : "flavour"), note:"", isOptional:false }, isBase));
 }
 
-function collect(id) {
+function readIngs(sel, forceBase) {
   var ings = [];
-  document.querySelectorAll("#f-ings-" + id + " .ing").forEach(function (row) {
+  document.querySelectorAll(sel + " .ing").forEach(function (row) {
     var name = row.querySelector(".i-name").value.trim();
     if (!name) return;
     var raw = row.querySelector(".i-amt").value.trim().replace(",", ".");
     var amount = raw === "" ? null : Number(raw);
+    var roleSel = row.querySelector(".i-role");
     ings.push({
       name: name,
       amount: (amount === null || isNaN(amount)) ? null : amount,
       unit: row.querySelector(".i-unit").value,
-      role: row.querySelector(".i-role").value,
-      note: "",
-      isOptional: false
+      role: forceBase ? "base" : (roleSel ? roleSel.value : "flavour"),
+      note: row.querySelector(".i-note").value.trim(),
+      isOptional: row.querySelector(".i-opt").checked
     });
   });
-  return {
-    category: document.getElementById("f-cat-" + id).value,
-    name: document.getElementById("f-name-" + id).value,
-    author: document.getElementById("f-author-" + id).value,
-    glyph: document.getElementById("f-glyph-" + id).value,
-    swatch: document.getElementById("f-swatch-" + id).value,
-    method: document.getElementById("f-method-" + id).value,
-    ingredients: ings
-  };
+  return ings;
+}
+
+function collect(id) {
+  // Start from the original and overwrite only what the form edits. Rebuilding
+  // from the form is how icons and custom bases used to get silently wiped.
+  var original = (CACHE[id] && CACHE[id].recipe) || {};
+  var out = {};
+  for (var k in original) out[k] = original[k];
+  out.category = document.getElementById("f-cat-" + id).value;
+  out.name = document.getElementById("f-name-" + id).value;
+  out.author = document.getElementById("f-author-" + id).value;
+  out.glyph = document.getElementById("f-glyph-" + id).value;
+  out.swatch = document.getElementById("f-swatch-" + id).value;
+  out.icon = document.getElementById("f-icon-" + id).value || null;
+  out.method = document.getElementById("f-method-" + id).value;
+  var baseIngs = readIngs("#f-base-" + id, true);
+  out.customBase = baseIngs.length ? baseIngs : null;
+  out.ingredients = readIngs("#f-ings-" + id, false);
+  return out;
 }
 
 async function saveEdit(id) {
@@ -222,6 +265,22 @@ async function saveEdit(id) {
     body: JSON.stringify(isNew ? { recipe: recipe, status: "approved" } : { id: id, recipe: recipe })
   });
   if (res.ok) { load(); } else { alert((await res.json()).error); }
+}
+
+var NL = String.fromCharCode(10);   // literal escapes do not survive the page template
+
+fetch("/tips").then(function (r) { return r.json(); }).then(function (d) {
+  document.getElementById("tips-box").value = (d.tips || []).join(NL);
+}).catch(function () { document.getElementById("tips-box").value = ""; });
+
+async function saveTips() {
+  if (!token()) { alert("Paste your admin token first."); return; }
+  var tips = document.getElementById("tips-box").value
+    .split(NL).map(function (t) { return t.trim(); }).filter(Boolean);
+  var msg = document.getElementById("tips-msg");
+  var res = await fetch("/admin/tips", { method: "POST", headers: headers(), body: JSON.stringify({ tips: tips }) });
+  if (res.ok) { msg.textContent = "Saved ✓"; setTimeout(function () { msg.textContent = ""; }, 2500); }
+  else { alert((await res.json()).error); }
 }
 
 async function decide(id, status) {

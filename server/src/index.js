@@ -34,6 +34,12 @@ export default {
       if (request.method === "POST" && pathname === "/rate") {
         return cors(await postRating(request, env));
       }
+      if ((request.method === "GET" || request.method === "HEAD") && pathname === "/tips") {
+        return cors(await getTips(env));
+      }
+      if (request.method === "POST" && pathname === "/admin/tips") {
+        return cors(await saveTips(request, env));
+      }
       // The web app: the free way onto anyone's phone. Same catalogue, no
       // App Store, and it installs to the home screen from Safari's Share menu.
       if (request.method === "GET" && (pathname === "/" || pathname === "/index.html")) {
@@ -167,6 +173,46 @@ async function postSubmission(request, env) {
   ).run();
 
   return json({ ok: true, id, status: "pending" }, 201);
+}
+
+// MARK: tips
+
+// The Spin-tips list, editable from /admin. Falls back to these defaults if
+// the meta row (or table) does not exist yet.
+const DEFAULT_TIPS = [
+  "Let the pint sit out for 10 to 15 minutes after the first spin so it can defrost a little.",
+  "No time to wait? Add a splash of milk and re-spin. It can take 2 or more re-spins to reach the best texture.",
+  "Add mix-ins before the texture is fully ready. The best moment is when it still looks a little pebbly.",
+];
+
+async function getTips(env) {
+  let tips = DEFAULT_TIPS;
+  try {
+    const row = await env.DB.prepare(`SELECT value FROM meta WHERE key = 'tips'`).first();
+    if (row && row.value) {
+      const parsed = JSON.parse(row.value);
+      if (Array.isArray(parsed) && parsed.length) tips = parsed;
+    }
+  } catch (err) { /* pre-migration DB: defaults are the right answer */ }
+  return json({ tips }, 200, {
+    "cache-control": `public, max-age=${CATALOGUE_MAX_AGE}, stale-while-revalidate=3600`,
+  });
+}
+
+async function saveTips(request, env) {
+  if (!authorised(request, env)) return json({ error: "Not authorised." }, 401);
+  const body = await request.json().catch(() => null);
+  if (!body || !Array.isArray(body.tips)) return json({ error: "Expected { tips: [...] }." }, 400);
+  const tips = body.tips
+    .map((t) => (typeof t === "string" ? t.trim().slice(0, 250) : ""))
+    .filter(Boolean)
+    .slice(0, 12);
+  if (!tips.length) return json({ error: "Keep at least one tip." }, 400);
+  await env.DB.prepare(
+    `INSERT INTO meta (key, value) VALUES ('tips', ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`
+  ).bind(JSON.stringify(tips)).run();
+  return json({ ok: true, tips });
 }
 
 // MARK: ratings
