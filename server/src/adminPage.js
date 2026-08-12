@@ -3,6 +3,8 @@
 //
 // The token is typed in and held in memory only; it is never stored.
 
+import { ICON_SOURCE } from "./iconSource.js";
+
 export const ADMIN_PAGE = `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -42,6 +44,18 @@ export const ADMIN_PAGE = `<!doctype html>
   .pill { font-size:12px; font-weight:700; background:var(--ink); color:var(--pop);
           border-radius:999px; padding:2px 9px; margin-left:6px; vertical-align:2px }
   @media (max-width:560px) { .ing { grid-template-columns:1fr 60px 1fr 34px } .ing .role { grid-column:1/-1 } }
+  .ico { fill:none; stroke:var(--ink); stroke-linecap:round; stroke-linejoin:round;
+         stroke-width:2.5; width:100%; height:100% }
+  .ico .dot { stroke-width:3.4 }
+  .ico .body { fill:var(--accent, currentColor); fill-opacity:.9 }
+  .ico .part { fill:var(--pc, currentColor) }
+  .ico-wrap { display:grid; place-items:center; width:30px; height:30px }
+  .icogrid { display:flex; flex-direction:column; gap:6px; max-height:200px; overflow-y:auto;
+             background:rgba(21,16,74,.05); border-radius:12px; padding:6px; margin-bottom:8px }
+  .icogroup { display:grid; grid-template-columns:repeat(auto-fill, minmax(42px, 1fr)); gap:5px }
+  .icobtn { padding:4px; border-radius:10px; border:2px solid transparent; background:transparent;
+            cursor:pointer; display:grid; place-items:center; box-shadow:none; margin:0 }
+  .icobtn[data-on='1'] { border-color:var(--ink); background:#fff; box-shadow:0 2px 0 var(--ink) }
 </style>
 
 <h1>Review queue</h1>
@@ -49,15 +63,16 @@ export const ADMIN_PAGE = `<!doctype html>
 
 <input id="token" type="password" placeholder="Admin token" autocomplete="current-password">
 <div class="bar">
-  <select id="status">
+  <select id="status" onchange="load()">
     <option value="pending">Pending</option>
     <option value="approved">Approved</option>
     <option value="rejected">Rejected</option>
+    <option value="tips">Spin tips</option>
   </select>
   <button onclick="load()">Load</button>
   <button class="ghost" onclick="startNew()">New</button>
 </div>
-<div class="card">
+<div class="card" id="tipscard" style="display:none">
   <h2>Spin tips</h2>
   <div class="by">One tip per line. These show on the app's Spin tips tab within about five minutes.</div>
   <textarea id="tips-box" style="min-height:110px">Loading…</textarea>
@@ -70,6 +85,10 @@ export const ADMIN_PAGE = `<!doctype html>
 <div id="out"></div>
 
 <script>
+${ICON_SOURCE}
+</script>
+
+<script>
 var CACHE = {};
 
 var UNITS = ["whole","grams","milliliters","teaspoons","tablespoons","cups","pinch","drops","scoops","toTaste"];
@@ -80,8 +99,6 @@ var ROLE_LABEL = { base:"Base", flavour:"Flavour", mixIn:"Mix-in", topping:"Topp
 var SWATCHES = ["mint","cocoa","banana","mango","vanilla","pumpkin","berry","matcha","olive","coffee","cherry","bubblegum","grape","lavender","blueberry","sky","charcoal","snow"];
 var CATS = ["protein","cream","sorbet"];
 var CAT_LABEL = { protein:"Protein / froyo", cream:"Ice cream", sorbet:"Sorbet" };
-// Generated from the FLAVOURS icon set; regenerate when icons change.
-var ICON_OPTIONS = [["","(emoji only)"],["nut","Almond / nut"],["apple","Apple"],["avocado","Avocado"],["banana","Banana"],["blackberry","Blackberry"],["blueberry","Blueberry"],["boba","Boba"],["brownie","Brownie"],["caramel","Caramel"],["cheesecake","Cheesecake"],["cherry","Cherry"],["chocolate","Chocolate"],["chocoBanana","Chocolate banana"],["cinnamon","Cinnamon"],["orange","Citrus"],["coconut","Coconut"],["coffee","Coffee"],["cookie","Cookie"],["cupcake","Cupcake"],["donut","Donut"],["fish","Fish"],["soda","Fizz"],["grape","Grape"],["honey","Honey"],["kiwi","Kiwi"],["lavender","Lavender"],["lemon","Lemon"],["lime","Lime"],["lollipop","Lollipop"],["mango","Mango"],["marshmallow","Marshmallow"],["matcha","Matcha"],["mint","Mint"],["oat","Oats"],["olive","Olive oil"],["peach","Peach"],["peanut","Peanut"],["peanutButter","Peanut butter"],["pear","Pear"],["pineapple","Pineapple"],["pistachio","Pistachio"],["pomegranate","Pomegranate"],["popcorn","Popcorn"],["protein","Protein"],["pumpkin","Pumpkin"],["raspberry","Raspberry"],["oreo","Sandwich"],["softserve","Soft serve"],["sorbet","Sorbet pop"],["sprinkles","Sprinkles"],["strawberry","Strawberry"],["tea","Tea"],["vanilla","Vanilla"],["waffle","Waffle"],["watermelon","Watermelon"]];
 
 function esc(s) {
   return String(s === null || s === undefined ? "" : s)
@@ -94,7 +111,20 @@ function esc(s) {
 function token() { return document.getElementById("token").value.trim(); }
 function headers() { return { "content-type":"application/json", authorization:"Bearer " + token() }; }
 
+var TIPS_LOADED = false;
 async function load() {
+  var tipsMode = document.getElementById("status").value === "tips";
+  document.getElementById("tipscard").style.display = tipsMode ? "" : "none";
+  document.getElementById("out").style.display = tipsMode ? "none" : "";
+  if (tipsMode) {
+    if (!TIPS_LOADED) {
+      TIPS_LOADED = true;
+      fetch("/tips").then(function (r) { return r.json(); }).then(function (d) {
+        document.getElementById("tips-box").value = (d.tips || []).join(NL);
+      }).catch(function () { document.getElementById("tips-box").value = ""; });
+    }
+    return;
+  }
   var status = document.getElementById("status").value;
   var out = document.getElementById("out");
   out.innerHTML = "<p class='empty'>Loading…</p>";
@@ -168,10 +198,9 @@ function editForm(id, r) {
       "<div style='flex:1'><div class='lbl'>Author</div><input id='f-author-" + id + "' value='" + esc(r.author) + "'></div>" +
       "<div style='width:90px'><div class='lbl'>Emoji</div><input id='f-glyph-" + id + "' value='" + esc(r.glyph) + "'></div>" +
     "</div>" +
-    "<div class='lbl'>Icon (wins over the emoji)</div><select id='f-icon-" + id + "'>" +
-      ICON_OPTIONS.map(function (o) {
-        return "<option value='" + o[0] + "'" + (o[0] === (r.icon || "") ? " selected" : "") + ">" + o[1] + "</option>";
-      }).join("") + "</select>" +
+    "<div class='lbl'>Icon (tap to pick, tap again to clear · wins over the emoji)</div>" +
+    "<input type='hidden' id='f-icon-" + id + "' value='" + esc(r.icon || "") + "'>" +
+    "<div class='icogrid' id='f-icongrid-" + id + "'>" + iconGrid(id, r.icon || "") + "</div>" +
     "<div class='lbl'>Category</div><select id='f-cat-" + id + "'>" +
       CATS.map(function (c) {
         return "<option value='" + c + "'" + (c === (r.category || "cream") ? " selected" : "") + ">" + CAT_LABEL[c] + "</option>";
@@ -190,6 +219,23 @@ function editForm(id, r) {
       "<button onclick=\\"saveEdit('" + id + "')\\">Save</button>" +
       "<button class='ghost' onclick=\\"load()\\">Cancel</button>" +
     "</div></div>";
+}
+
+function iconGrid(id, current) {
+  return GROUPS.map(function (g) {
+    return "<div class='icogroup'>" + g[1].filter(function (k) { return FLAVOURS[k]; })
+      .map(function (k) {
+        return "<button type='button' class='icobtn' data-on='" + (k === current ? 1 : 0) +
+          "' onclick=\\"pickIcon('" + id + "','" + k + "')\\" title='" + FLAVOURS[k].label + "'>" +
+          iconMarkup(k) + "</button>";
+      }).join("") + "</div>";
+  }).join("");
+}
+
+function pickIcon(id, key) {
+  var input = document.getElementById("f-icon-" + id);
+  input.value = input.value === key ? "" : key;
+  document.getElementById("f-icongrid-" + id).innerHTML = iconGrid(id, input.value);
 }
 
 function ingRow(id, n, i, isBase) {
@@ -268,10 +314,6 @@ async function saveEdit(id) {
 }
 
 var NL = String.fromCharCode(10);   // literal escapes do not survive the page template
-
-fetch("/tips").then(function (r) { return r.json(); }).then(function (d) {
-  document.getElementById("tips-box").value = (d.tips || []).join(NL);
-}).catch(function () { document.getElementById("tips-box").value = ""; });
 
 async function saveTips() {
   if (!token()) { alert("Paste your admin token first."); return; }
