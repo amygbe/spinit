@@ -590,7 +590,7 @@ function fmtDay(iso) {
 function measure(i) {
   var unit = UNIT_LABEL[i.unit] !== undefined ? UNIT_LABEL[i.unit] : "";
   if (i.amount === null || i.amount === undefined) return unit;
-  return (i.amount + " " + unit).trim();
+  return (fmtAmount(i.amount) + " " + unit).trim();
 }
 
 /// Each stage is its own sticker panel, so the ground shows between them.
@@ -1032,7 +1032,7 @@ function baseRowHTML(i) {
   }).join("");
   return '<div class="ingrow">' +
     '<input class="b-name" placeholder="Chocolate Fairlife" value="' + esc(i.name) + '">' +
-    '<input class="b-amt" placeholder="qty" inputmode="decimal" value="' + (i.amount === null || i.amount === undefined ? "" : i.amount) + '">' +
+    '<input class="b-amt" placeholder="qty" inputmode="decimal" value="' + fmtAmount(i.amount) + '">' +
     '<select class="b-unit">' + opts + '</select>' +
     '<button class="rm" data-act="rm-row">×</button>' +
     '</div>';
@@ -1047,7 +1047,7 @@ function ingRowHTML(i) {
   }).join("");
   return '<div class="ingrow">' +
     '<input class="i-name" placeholder="Ingredient" value="' + esc(i.name) + '">' +
-    '<input class="i-amt" placeholder="qty" inputmode="decimal" value="' + (i.amount === null || i.amount === undefined ? "" : i.amount) + '">' +
+    '<input class="i-amt" placeholder="qty" inputmode="decimal" value="' + fmtAmount(i.amount) + '">' +
     '<select class="i-unit">' + opts + '</select>' +
     '<button class="rm" data-act="rm-row">×</button>' +
     '</div><div class="rolerow"><select class="i-role">' + ropts + '</select></div>';
@@ -1062,8 +1062,7 @@ function collectRows(box, prefix, role) {
   for (var k = 0; k < names.length; k++) {
     var nm = names[k].value.trim();
     if (!nm) continue;
-    var raw = amts[k].value.trim().replace(",", ".");
-    var amount = raw === "" ? null : Number(raw);
+    var amount = parseAmount(amts[k].value);
     out.push({
       name: nm,
       amount: amount === null || isNaN(amount) ? null : amount,
@@ -1338,7 +1337,7 @@ export const MANIFEST = JSON.stringify({
 // Shell cached so the app opens instantly and offline; the catalogue is
 // network-first so an approval is never hidden behind a stale cache.
 export const SERVICE_WORKER = `
-const SHELL = "churn-shell-v20";
+const SHELL = "churn-shell-v21";
 const FILES = ["/", "/manifest.webmanifest", "/icon-180.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {

@@ -143,7 +143,7 @@ async function load() {
 function viewCard(s, status) {
   var allIng = (s.recipe.customBase || []).concat(s.recipe.ingredients || []);
   var ing = allIng.map(function (i) {
-    var amount = i.amount === null || i.amount === undefined ? "" : i.amount;
+    var amount = fmtAmount(i.amount);
     var unit = i.unit === "whole" ? "" : (UNIT_LABEL[i.unit] || i.unit);
     var measure = [amount, unit].filter(Boolean).join(" ");
     return "<li>" + (measure ? "<b>" + esc(measure) + "</b> " : "") + esc(i.name) +
@@ -211,6 +211,14 @@ function editForm(id, r) {
       }).join("") + "</select>" +
     "<div class='lbl'>Method</div><textarea id='f-method-" + id + "'>" + esc(r.method) + "</textarea>" +
     "<div class='lbl'>Custom base (leave empty to use the classic base)</div>" +
+    "<div class='row' style='margin-bottom:6px'>" +
+      "<select id='f-basepre-" + id + "' style='flex:1;min-width:200px;margin-bottom:0'>" +
+        "<option value=''>Start from a saved base…</option>" +
+        Object.keys(BASE_PRESETS).map(function (k) {
+          return "<option value='" + k + "'>" + BASE_PRESETS[k].label + "</option>";
+        }).join("") + "</select>" +
+      "<button type='button' class='small ghost' onclick=\\"applyBasePreset('" + id + "')\\">Apply</button>" +
+    "</div>" +
     "<div id='f-base-" + id + "'>" + baseRows + "</div>" +
     "<button class='small ghost' onclick=\\"addIng('" + id + "', true)\\">+ base ingredient</button>" +
     "<div class='lbl'>Ingredients</div><div id='f-ings-" + id + "'>" + rows + "</div>" +
@@ -219,6 +227,36 @@ function editForm(id, r) {
       "<button onclick=\\"saveEdit('" + id + "')\\">Save</button>" +
       "<button class='ghost' onclick=\\"load()\\">Cancel</button>" +
     "</div></div>";
+}
+
+// Amy's saved bases. Applying one fills the custom-base rows; edit from there.
+var BASE_PRESETS = {
+  classic: { label: "Classic base", ings: [
+    { name:"Milk", amount:400, unit:"milliliters", role:"base", note:"", isOptional:false },
+    { name:"Sugar, monk fruit, or any sweetener", amount:40, unit:"grams", role:"base", note:"", isOptional:false },
+    { name:"Salt", amount:null, unit:"pinch", role:"base", note:"", isOptional:false },
+    { name:"Xanthan gum", amount:0.25, unit:"teaspoons", role:"base", note:"", isOptional:false } ] },
+  chocolate: { label: "Chocolate base", ings: [
+    { name:"Fairlife chocolate protein shake (or equivalent)", amount:350, unit:"milliliters", role:"base", note:"", isOptional:false },
+    { name:"Milk", amount:50, unit:"milliliters", role:"base", note:"", isOptional:false },
+    { name:"Monkfruit sweetener or sugar", amount:20, unit:"grams", role:"base", note:"", isOptional:false },
+    { name:"Dutch processed/dark cocoa powder", amount:15, unit:"grams", role:"base",
+      note:"Doesn't have to be dutch processed, but it has a richer taste that works really well in this creami", isOptional:false },
+    { name:"Xanthan gum", amount:0.25, unit:"teaspoons", role:"base", note:"", isOptional:false },
+    { name:"Salt", amount:null, unit:"pinch", role:"base", note:"", isOptional:false } ] },
+  fullfat: { label: "Full-fat ice cream base", ings: [
+    { name:"Milk", amount:150, unit:"milliliters", role:"base", note:"", isOptional:false },
+    { name:"Heavy cream", amount:150, unit:"milliliters", role:"base", note:"", isOptional:false },
+    { name:"Sugar", amount:40, unit:"grams", role:"base", note:"", isOptional:false },
+    { name:"Salt", amount:null, unit:"pinch", role:"base", note:"", isOptional:false } ] }
+};
+
+function applyBasePreset(id) {
+  var key = document.getElementById("f-basepre-" + id).value;
+  if (!key || !BASE_PRESETS[key]) return;
+  var box = document.getElementById("f-base-" + id);
+  if (box.children.length && !confirm("Replace the current base rows with " + BASE_PRESETS[key].label + "?")) return;
+  box.innerHTML = BASE_PRESETS[key].ings.map(function (i, n) { return ingRow(id, n, i, true); }).join("");
 }
 
 function iconGrid(id, current) {
@@ -246,7 +284,7 @@ function ingRow(id, n, i, isBase) {
       }).join("") + "</select>";
   return "<div class='ing" + (isBase ? " base" : "") + "' data-row='" + n + "'>" +
     "<input placeholder='Ingredient' class='i-name' value='" + esc(i.name) + "'>" +
-    "<input placeholder='qty' class='i-amt' value='" + (i.amount === null || i.amount === undefined ? "" : i.amount) + "'>" +
+    "<input placeholder='qty' class='i-amt' value='" + fmtAmount(i.amount) + "'>" +
     "<select class='i-unit'>" + UNITS.map(function (u) {
       return "<option value='" + u + "'" + (u === i.unit ? " selected" : "") + ">" + esc(UNIT_LABEL[u]) + "</option>";
     }).join("") + "</select>" +
@@ -268,12 +306,11 @@ function readIngs(sel, forceBase) {
   document.querySelectorAll(sel + " .ing").forEach(function (row) {
     var name = row.querySelector(".i-name").value.trim();
     if (!name) return;
-    var raw = row.querySelector(".i-amt").value.trim().replace(",", ".");
-    var amount = raw === "" ? null : Number(raw);
+    var amount = parseAmount(row.querySelector(".i-amt").value);
     var roleSel = row.querySelector(".i-role");
     ings.push({
       name: name,
-      amount: (amount === null || isNaN(amount)) ? null : amount,
+      amount: amount,
       unit: row.querySelector(".i-unit").value,
       role: forceBase ? "base" : (roleSel ? roleSel.value : "flavour"),
       note: row.querySelector(".i-note").value.trim(),

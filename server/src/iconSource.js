@@ -419,4 +419,34 @@ function iconMarkup(key) {
   if (!f) return "";
   return '<span class="ico-wrap" style="--accent:' + accentFor(f) + '">' + svgFor(f.i) + '</span>';
 }
+
+/* ---------------------------------------------------- shared amount utils */
+
+/// "1/4", "1 1/2", unicode fractions, "0.25", and "0,25" all become numbers.
+function parseAmount(raw) {
+  if (raw === null || raw === undefined) return null;
+  var t = String(raw).trim().replace(",", ".");
+  if (!t) return null;
+  var VULGAR = { "¼":0.25, "½":0.5, "¾":0.75, "⅓":1/3, "⅔":2/3,
+                 "⅛":0.125, "⅜":0.375, "⅝":0.625, "⅞":0.875 };
+  var m = t.match(/^(\d+)?\s*([¼½¾⅓⅔⅛-⅞])$/);
+  if (m) return (m[1] ? parseInt(m[1], 10) : 0) + VULGAR[m[2]];
+  m = t.match(/^(\d+)\s+(\d+)\s*\/\s*(\d+)$/);
+  if (m && +m[3]) return +m[1] + (+m[2] / +m[3]);
+  m = t.match(/^(\d+)\s*\/\s*(\d+)$/);
+  if (m && +m[2]) return +m[1] / +m[2];
+  var n = Number(t);
+  return isNaN(n) ? null : n;
+}
+
+/// Numbers come back out the way a recipe says them: 0.25 is a quarter.
+function fmtAmount(v) {
+  if (v === null || v === undefined) return "";
+  var whole = Math.floor(v), frac = v - whole;
+  var FR = [[0.25, "¼"], [1/3, "⅓"], [0.5, "½"], [2/3, "⅔"], [0.75, "¾"]];
+  for (var i = 0; i < FR.length; i++) {
+    if (Math.abs(frac - FR[i][0]) < 0.01) return (whole ? whole : "") + FR[i][1];
+  }
+  return String(Math.round(v * 100) / 100);
+}
 `;
