@@ -123,6 +123,8 @@ export const WEB_APP = `<!doctype html>
     box-shadow:0 5px 0 var(--ink); transition:transform .2s var(--bounce); text-align:center;
   }
   .scard:active { transform:translateY(4px) }
+  .scard .cattag { position:absolute; top:9px; left:11px; font-size:9px; font-weight:800;
+                   letter-spacing:.07em; text-transform:uppercase; color:var(--ink-mute); opacity:.75 }
   .scard.untried { background:transparent; border-style:dashed; border-color:var(--on-dim); color:var(--on-ground); box-shadow:none }
   .scard .name { font-family:var(--display); font-size:16px; font-weight:700; line-height:1.15; overflow-wrap:anywhere }
   .scard .by { font-size:11px; color:var(--ink-mute); font-weight:600 }
@@ -232,6 +234,10 @@ export const WEB_APP = `<!doctype html>
   .ingrow input, .ingrow select { padding:8px 9px; border-radius:11px }
   .ingrow .rm { background:transparent; border:0; color:var(--on-dim); font-size:19px; cursor:pointer; width:auto }
   .rolerow { display:grid; grid-template-columns:1fr; margin-top:-1px; margin-bottom:6px }
+  .noterow { display:grid; grid-template-columns:1fr auto; gap:6px; align-items:center; margin:-1px 0 10px }
+  .noterow input[type="checkbox"] { width:auto; margin:0 }
+  .noterow .b-note, .noterow .i-note { padding:8px 9px; border-radius:11px; margin-bottom:0 }
+  .optlab { display:flex; align-items:center; gap:5px; font-size:12px; font-weight:700; color:var(--ink-mute) }
 
   .icogrid { display:flex; flex-direction:column; gap:6px; margin-bottom:4px;
              max-height:210px; overflow-y:auto; padding:2px }
@@ -649,6 +655,7 @@ function renderShelf() {
     var comm = communityFor(r.id);
     return '<div class="scard' + (isTried ? "" : " untried") + '" data-act="open-local" data-id="' + r.id + '">' +
       '<span class="badge">' + shelfBadge(lg) + '</span>' +
+      '<span class="cattag">' + CAT_LABEL[r.category || "cream"] + '</span>' +
       tileHTML(r) +
       '<span class="name">' + esc(r.name) + '</span>' +
       (comm ? '<span class="cstat">community \u2605 ' + fmtScore(comm.avg) +
@@ -820,6 +827,7 @@ function renderCatalogue() {
   function card(w) {
     return '<div class="scard" data-act="open-remote" data-id="' + w.id + '">' +
       (onShelf(w) ? '<span class="badge dim">saved ✓</span>' : "") +
+      '<span class="cattag">' + CAT_LABEL[w.category || "cream"] + '</span>' +
       tileHTML(w) +
       '<span class="name">' + esc(w.name) + '</span>' +
       '<span class="by">by ' + esc(w.author) + '</span>' +
@@ -1014,7 +1022,10 @@ function showEditor(id) {
     '<button class="chip" data-act="base-mode" data-id="custom" data-on="' + (EDIT.baseMode === "custom" ? 1 : 0) + '">My own base</button>' +
     '</div>' +
     '<div id="basebox" style="' + (EDIT.baseMode === "custom" ? "" : "display:none") + '">' +
-    '<div class="basehint">Anything goes: chocolate Fairlife, Greek yogurt, watermelon and Sprite…</div>' +
+    '<div class="basehint">Start from a saved base and tweak it, or build your own:</div>' +
+    '<div class="basechips" style="margin:6px 0 4px">' + Object.keys(BASE_PRESETS).map(function (k) {
+      return '<button class="chip" data-act="base-preset" data-id="' + k + '">' + BASE_PRESETS[k].label + '</button>';
+    }).join("") + '</div>' +
     '<div style="height:7px"></div>' +
     '<div id="bings">' + EDIT.customBase.map(baseRowHTML).join("") + '</div>' +
     '<button class="btn ghost small" data-act="add-bing">+ base ingredient</button>' +
@@ -1040,7 +1051,9 @@ function baseRowHTML(i) {
     '<input class="b-amt" placeholder="qty" inputmode="decimal" value="' + fmtAmount(i.amount) + '">' +
     '<select class="b-unit">' + opts + '</select>' +
     '<button class="rm" data-act="rm-row">×</button>' +
-    '</div>';
+    '</div>' +
+    '<div class="noterow"><input class="b-note" placeholder="note (optional)" value="' + esc(i.note || "") + '">' +
+    '<label class="optlab"><input type="checkbox" class="b-opt"' + (i.isOptional ? " checked" : "") + '> optional</label></div>';
 }
 
 function ingRowHTML(i) {
@@ -1055,7 +1068,9 @@ function ingRowHTML(i) {
     '<input class="i-amt" placeholder="qty" inputmode="decimal" value="' + fmtAmount(i.amount) + '">' +
     '<select class="i-unit">' + opts + '</select>' +
     '<button class="rm" data-act="rm-row">×</button>' +
-    '</div><div class="rolerow"><select class="i-role">' + ropts + '</select></div>';
+    '</div><div class="rolerow"><select class="i-role">' + ropts + '</select></div>' +
+    '<div class="noterow"><input class="i-note" placeholder="note (optional)" value="' + esc(i.note || "") + '">' +
+    '<label class="optlab"><input type="checkbox" class="i-opt"' + (i.isOptional ? " checked" : "") + '> optional</label></div>';
 }
 
 function collectRows(box, prefix, role) {
@@ -1063,6 +1078,8 @@ function collectRows(box, prefix, role) {
   var names = box.querySelectorAll("." + prefix + "-name");
   var amts = box.querySelectorAll("." + prefix + "-amt");
   var units = box.querySelectorAll("." + prefix + "-unit");
+  var notes = box.querySelectorAll("." + prefix + "-note");
+  var optsC = box.querySelectorAll("." + prefix + "-opt");
   var roles = box.querySelectorAll(".i-role");
   for (var k = 0; k < names.length; k++) {
     var nm = names[k].value.trim();
@@ -1073,6 +1090,8 @@ function collectRows(box, prefix, role) {
       amount: amount === null || isNaN(amount) ? null : amount,
       unit: units[k].value,
       role: role || (roles[k] ? roles[k].value : "flavour"),
+      note: notes[k] ? notes[k].value.trim() : "",
+      isOptional: !!(optsC[k] && optsC[k].checked),
     });
   }
   return out;
@@ -1207,6 +1226,15 @@ app.addEventListener("click", function (e) {
     document.getElementById("basebox").style.display = id === "custom" ? "" : "none";
     document.getElementById("classichint").style.display = id === "classic" ? "" : "none";
   }
+  else if (act === "base-preset") {
+    var pre = BASE_PRESETS[id];
+    if (!pre) return;
+    var hasRows = EDIT.customBase.some(function (i) { return (i.name || "").trim(); });
+    if (hasRows && !confirm("Replace the current base with " + pre.label + "?")) return;
+    EDIT.customBase = JSON.parse(JSON.stringify(pre.ings));
+    // repaint only the base rows so nothing typed elsewhere is lost
+    document.getElementById("bings").innerHTML = EDIT.customBase.map(baseRowHTML).join("");
+  }
   else if (act === "add-bing") {
     document.getElementById("bings").insertAdjacentHTML("beforeend",
       baseRowHTML({ name: "", amount: null, unit: "whole", role: "base" }));
@@ -1253,6 +1281,7 @@ app.addEventListener("click", function (e) {
     var w = (CAT || []).find(function (x) { return x.id === id; });
     if (!w) return;
     DB.recipes.push({ id: w.id, name: w.name, glyph: w.glyph, swatch: w.swatch, icon: w.icon || null, image: null,
+      category: w.category || "cream",
       method: w.method || "", ingredients: w.ingredients, customBase: w.customBase || null,
       origin: "saved", author: w.author });
     save(); showRemote(id);
@@ -1342,7 +1371,7 @@ export const MANIFEST = JSON.stringify({
 // Shell cached so the app opens instantly and offline; the catalogue is
 // network-first so an approval is never hidden behind a stale cache.
 export const SERVICE_WORKER = `
-const SHELL = "churn-shell-v22";
+const SHELL = "churn-shell-v23";
 const FILES = ["/", "/manifest.webmanifest", "/icon-180.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {

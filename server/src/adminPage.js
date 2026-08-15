@@ -229,33 +229,6 @@ function editForm(id, r) {
     "</div></div>";
 }
 
-// Amy's saved bases. Applying one fills the custom-base rows; edit from there.
-var BASE_PRESETS = {
-  classic: { label: "Classic base", ings: [
-    { name:"Milk", amount:400, unit:"milliliters", role:"base", note:"", isOptional:false },
-    { name:"Sugar, monk fruit, or any sweetener", amount:40, unit:"grams", role:"base", note:"", isOptional:false },
-    { name:"Salt", amount:null, unit:"pinch", role:"base", note:"", isOptional:false },
-    { name:"Xanthan gum", amount:0.25, unit:"teaspoons", role:"base", note:"", isOptional:false } ] },
-  chocolate: { label: "Chocolate base", ings: [
-    { name:"Fairlife chocolate protein shake (or equivalent)", amount:350, unit:"milliliters", role:"base", note:"", isOptional:false },
-    { name:"Milk", amount:50, unit:"milliliters", role:"base", note:"", isOptional:false },
-    { name:"Monkfruit sweetener or sugar", amount:20, unit:"grams", role:"base", note:"", isOptional:false },
-    { name:"Dutch processed/dark cocoa powder", amount:15, unit:"grams", role:"base",
-      note:"Doesn't have to be dutch processed, but it has a richer taste that works really well in this creami", isOptional:false },
-    { name:"Xanthan gum", amount:0.25, unit:"teaspoons", role:"base", note:"", isOptional:false },
-    { name:"Salt", amount:null, unit:"pinch", role:"base", note:"", isOptional:false } ] },
-  icecream: { label: "Ice cream base", ings: [
-    { name:"Milk", amount:125, unit:"milliliters", role:"base", note:"", isOptional:false },
-    { name:"Heavy cream", amount:125, unit:"milliliters", role:"base", note:"", isOptional:false },
-    { name:"Monkfruit sweetener or sugar", amount:40, unit:"grams", role:"base", note:"", isOptional:false },
-    { name:"Salt", amount:null, unit:"pinch", role:"base", note:"", isOptional:false } ] },
-  yogurt: { label: "Yogurt base", ings: [
-    { name:"Plain Greek yogurt", amount:125, unit:"milliliters", role:"base", note:"", isOptional:false },
-    { name:"Milk", amount:225, unit:"milliliters", role:"base", note:"", isOptional:false },
-    { name:"Monkfruit sweetener or sugar", amount:35, unit:"grams", role:"base", note:"", isOptional:false },
-    { name:"Salt", amount:null, unit:"pinch", role:"base", note:"", isOptional:false } ] }
-};
-
 function applyBasePreset(id) {
   var key = document.getElementById("f-basepre-" + id).value;
   if (!key || !BASE_PRESETS[key]) return;
