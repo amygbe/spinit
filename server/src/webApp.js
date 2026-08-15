@@ -58,7 +58,12 @@ export const WEB_APP = `<!doctype html>
   h1 { font-family:var(--display); font-size:32px; font-weight:700; margin:0; line-height:1.05 }
   .squiggle { display:block; width:98px; height:8px; margin:4px 0 0 }
   header.top { display:flex; align-items:center; gap:11px; margin-bottom:12px }
-  header.top img { width:42px; height:42px; border-radius:12px; box-shadow:0 3px 0 rgba(0,0,0,.35) }
+  .brandmark {
+    width:42px; height:42px; flex:none; border-radius:12px;
+    background:var(--ground); box-shadow:0 3px 0 rgba(0,0,0,.35);
+    fill:none; stroke:var(--pop); stroke-width:5.5;
+    stroke-linecap:round; stroke-linejoin:round;
+  }
 
   .palbtn {
     margin-left:auto; width:40px; height:40px; border-radius:14px; flex:none;
@@ -557,7 +562,7 @@ function tileHTML(r) {
 }
 
 function header(tab) {
-  return '<header class="top"><img src="/icon-180.png?v=2" alt=""><div><h1>Spin It</h1>' + SQUIGGLE + '</div>' +
+  return '<header class="top">' + brandMark("brandmark") + '<div><h1>Spin It</h1>' + SQUIGGLE + '</div>' +
     '<button class="palbtn" data-act="palette-open" aria-label="Colour themes">' +
     '<span style="background:' + PALETTES[CUR_PALETTE].vars["--pop"] + '"></span>' +
     '<span style="background:' + PALETTES[CUR_PALETTE].vars["--card"] + '"></span>' +
@@ -1337,7 +1342,7 @@ export const MANIFEST = JSON.stringify({
 // Shell cached so the app opens instantly and offline; the catalogue is
 // network-first so an approval is never hidden behind a stale cache.
 export const SERVICE_WORKER = `
-const SHELL = "churn-shell-v21";
+const SHELL = "churn-shell-v22";
 const FILES = ["/", "/manifest.webmanifest", "/icon-180.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {
