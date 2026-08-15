@@ -19,7 +19,7 @@ const UNITS = new Set([
   "grams", "milliliters", "teaspoons", "tablespoons", "cups",
   "pinch", "drops", "scoops", "whole", "toTaste",
 ]);
-const CATEGORIES = new Set(["protein", "cream", "sorbet"]);
+const CATEGORIES = new Set(["protein", "froyo", "cream", "sorbet"]);
 
 const SWATCHES = new Set([
   "mint", "cocoa", "banana", "mango", "vanilla",

@@ -123,7 +123,7 @@ export const WEB_APP = `<!doctype html>
     box-shadow:0 5px 0 var(--ink); transition:transform .2s var(--bounce); text-align:center;
   }
   .scard:active { transform:translateY(4px) }
-  .scard .cattag { position:absolute; top:9px; left:11px; font-size:9px; font-weight:800;
+  .scard .cattag { position:absolute; top:14px; left:16px; font-size:9px; font-weight:800;
                    letter-spacing:.07em; text-transform:uppercase; color:var(--ink-mute); opacity:.75 }
   .scard.untried { background:transparent; border-style:dashed; border-color:var(--on-dim); color:var(--on-ground); box-shadow:none }
   .scard .name { font-family:var(--display); font-size:16px; font-weight:700; line-height:1.15; overflow-wrap:anywhere }
@@ -412,8 +412,8 @@ function applyPalette(name, persist) {
 applyPalette((function () { try { return localStorage.getItem(PALETTE_KEY); } catch (e) { return null; } })(), false);
 
 ${ICON_SOURCE}
-var CATS = ["protein", "cream", "sorbet"];
-var CAT_LABEL = { protein: "Protein / froyo", cream: "Ice cream", sorbet: "Sorbet" };
+var CATS = ["protein", "froyo", "cream", "sorbet"];
+var CAT_LABEL = { protein: "Protein", froyo: "Froyo", cream: "Ice cream", sorbet: "Sorbet" };
 
 var CLASSIC_BASE = [
   ["400 ml", "Milk"],
@@ -1371,7 +1371,7 @@ export const MANIFEST = JSON.stringify({
 // Shell cached so the app opens instantly and offline; the catalogue is
 // network-first so an approval is never hidden behind a stale cache.
 export const SERVICE_WORKER = `
-const SHELL = "churn-shell-v23";
+const SHELL = "churn-shell-v24";
 const FILES = ["/", "/manifest.webmanifest", "/icon-180.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {

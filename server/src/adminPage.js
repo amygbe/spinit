@@ -97,8 +97,8 @@ var UNIT_LABEL = { whole:"—", grams:"g", milliliters:"ml", teaspoons:"tsp", ta
 var ROLES = ["base","flavour","mixIn","topping"];
 var ROLE_LABEL = { base:"Base", flavour:"Flavour", mixIn:"Mix-in", topping:"Topping" };
 var SWATCHES = ["mint","cocoa","banana","mango","vanilla","pumpkin","berry","matcha","olive","coffee","cherry","bubblegum","grape","lavender","blueberry","sky","charcoal","snow"];
-var CATS = ["protein","cream","sorbet"];
-var CAT_LABEL = { protein:"Protein / froyo", cream:"Ice cream", sorbet:"Sorbet" };
+var CATS = ["protein","froyo","cream","sorbet"];
+var CAT_LABEL = { protein:"Protein", froyo:"Froyo", cream:"Ice cream", sorbet:"Sorbet" };
 
 function esc(s) {
   return String(s === null || s === undefined ? "" : s)
