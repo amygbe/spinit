@@ -178,6 +178,11 @@ export const WEB_APP = `<!doctype html>
   .spinfield label { display:block; font-size:11px; font-weight:800; letter-spacing:.04em;
                      text-transform:uppercase; color:var(--ink-mute); margin-bottom:4px }
   .spinform input[type="date"] { width:auto }
+  .unitrow { display:flex; align-items:center; justify-content:flex-end; gap:6px; margin:10px 0 6px }
+  .unitrow .ulab { font-size:10.5px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--on-dim) }
+  .uchip { font-size:11.5px; font-weight:800; padding:4px 11px; border-radius:99px;
+           border:2px solid var(--on-dim); background:transparent; color:var(--on-dim); cursor:pointer }
+  .uchip[data-on="1"] { background:var(--card); color:var(--ink); border-color:var(--ink); box-shadow:0 2px 0 var(--ink) }
   .starrow { display:flex; gap:4px; margin:8px 0 2px }
   .star {
     position:relative; font-size:30px; line-height:1; background:none; border:none;
@@ -302,6 +307,38 @@ var RATER = (function () {
 })();
 var UNITS = ["whole","grams","milliliters","teaspoons","tablespoons","cups","pinch","drops","scoops","toTaste"];
 var UNIT_LABEL = { whole:"", grams:"g", milliliters:"ml", teaspoons:"tsp", tablespoons:"tbsp", cups:"cup", pinch:"pinch", drops:"drops", scoops:"scoop", toTaste:"to taste" };
+
+// Metric is canonical: every recipe is STORED in g and ml, so the catalogue
+// stays uniform and the server never learns about ounces. Imperial is a live
+// conversion at display and entry time, per device, metric by default.
+var UNITS_KEY = "spinit.units.v1";
+var UNITS_MODE = (function () {
+  try { return localStorage.getItem(UNITS_KEY) === "imperial" ? "imperial" : "metric"; }
+  catch (e) { return "metric"; }
+})();
+var OZ_G = 28.3495, FLOZ_ML = 29.5735;
+function trim1(v) { return String(Math.round(v * 10) / 10); }
+function unitEntryLabel(u) {
+  if (UNITS_MODE === "imperial" && u === "grams") return "oz";
+  if (UNITS_MODE === "imperial" && u === "milliliters") return "fl oz";
+  return UNIT_LABEL[u] !== undefined ? UNIT_LABEL[u] : "—";
+}
+function entryAmount(i) {
+  if (i.amount === null || i.amount === undefined) return "";
+  if (UNITS_MODE === "imperial" && i.unit === "grams") return trim1(i.amount / OZ_G);
+  if (UNITS_MODE === "imperial" && i.unit === "milliliters") return trim1(i.amount / FLOZ_ML);
+  return fmtAmount(i.amount);
+}
+function unitBar() {
+  return '<div class="unitrow"><span class="ulab">Units</span>' +
+    '<button class="uchip" data-act="units" data-id="metric" data-on="' + (UNITS_MODE === "metric" ? 1 : 0) + '">g \u00b7 ml</button>' +
+    '<button class="uchip" data-act="units" data-id="imperial" data-on="' + (UNITS_MODE === "imperial" ? 1 : 0) + '">oz \u00b7 fl oz</button></div>';
+}
+function classicHintText() {
+  return UNITS_MODE === "imperial"
+    ? "13.5 fl oz milk \u00b7 1.4 oz sweetener \u00b7 pinch of salt \u00b7 \u00bc tsp xanthan gum"
+    : "400 ml milk \u00b7 40 g sweetener \u00b7 pinch of salt \u00b7 \u00bc tsp xanthan gum";
+}
 var ROLES = ["flavour","mixIn","topping"];
 var ROLE_LABEL = { base:"Base", flavour:"Flavour", mixIn:"Mix-ins", topping:"Toppings" };
 var ROLE_HINT = { base:"blend, then freeze 24h", flavour:"blend into the pint", mixIn:"fold in after the first spin", topping:"at the bowl" };
@@ -416,10 +453,10 @@ var CATS = ["protein", "froyo", "cream", "sorbet"];
 var CAT_LABEL = { protein: "Protein", froyo: "Froyo", cream: "Ice cream", sorbet: "Sorbet" };
 
 var CLASSIC_BASE = [
-  ["400 ml", "Milk"],
-  ["40 g", "Sugar, monk fruit, or any sweetener"],
-  ["pinch", "Salt"],
-  ["¼ tsp", "Xanthan gum"],
+  [400, "milliliters", "Milk"],
+  [40, "grams", "Sugar, monk fruit, or any sweetener"],
+  [null, "pinch", "Salt"],
+  [0.25, "teaspoons", "Xanthan gum"],
 ];
 
 var app = document.getElementById("app");
@@ -544,6 +581,30 @@ function ensureCatalogue(then) {
     .catch(function () {});
 }
 
+/// Flip the editor's amounts and unit labels without re-rendering the form.
+/// A re-render would rebuild EDIT from the saved recipe and eat the draft.
+function editorSwapUnits(newMode) {
+  var toImp = newMode === "imperial";
+  document.querySelectorAll("#bings .ingrow, #ings .ingrow").forEach(function (row) {
+    var amt = row.querySelector(".b-amt, .i-amt");
+    var sel = row.querySelector(".b-unit, .i-unit");
+    if (!amt || !sel) return;
+    var v = parseAmount(amt.value);
+    if (v === null) return;
+    if (sel.value === "grams") amt.value = toImp ? trim1(v / OZ_G) : fmtAmount(Math.round(v * OZ_G * 10) / 10);
+    if (sel.value === "milliliters") amt.value = toImp ? trim1(v / FLOZ_ML) : fmtAmount(Math.round(v * FLOZ_ML * 10) / 10);
+  });
+  document.querySelectorAll("#bings select, #ings select").forEach(function (sel) {
+    for (var k = 0; k < sel.options.length; k++) {
+      var o = sel.options[k];
+      if (o.value === "grams") o.textContent = toImp ? "oz" : "g";
+      if (o.value === "milliliters") o.textContent = toImp ? "fl oz" : "ml";
+    }
+  });
+  var hint = document.getElementById("classichint");
+  if (hint) { UNITS_MODE = newMode; hint.textContent = classicHintText(); }
+}
+
 function sendRating(recipeId, stars) {
   return fetch("/rate", {
     method: "POST",
@@ -599,9 +660,13 @@ function fmtDay(iso) {
 }
 
 function measure(i) {
-  var unit = UNIT_LABEL[i.unit] !== undefined ? UNIT_LABEL[i.unit] : "";
-  if (i.amount === null || i.amount === undefined) return unit;
-  return (fmtAmount(i.amount) + " " + unit).trim();
+  var a = i.amount, u = i.unit;
+  var label = UNIT_LABEL[u] !== undefined ? UNIT_LABEL[u] : "";
+  var converted = false;
+  if (UNITS_MODE === "imperial" && u === "grams") { label = "oz"; converted = true; if (a != null) a = a / OZ_G; }
+  if (UNITS_MODE === "imperial" && u === "milliliters") { label = "fl oz"; converted = true; if (a != null) a = a / FLOZ_ML; }
+  if (a === null || a === undefined) return label;
+  return ((converted ? trim1(a) : fmtAmount(a)) + " " + label).trim();
 }
 
 /// Each stage is its own sticker panel, so the ground shows between them.
@@ -622,7 +687,7 @@ function ingredientPanels(r) {
     }).join(""));
   } else {
     html += panel("Classic base", ROLE_HINT.base, CLASSIC_BASE.map(function (p) {
-      return irow(p[0], p[1], "", false);
+      return irow(measure({ amount: p[0], unit: p[1] }), p[2], "", false);
     }).join(""));
   }
   ROLES.forEach(function (role) {
@@ -754,6 +819,7 @@ function showLocal(id) {
     '<div class="byline">by ' + esc(r.author || "you") + '</div></div></div>' +
     rate +
     spins +
+    unitBar() +
     ingredientPanels(r) +
     (r.method ? '<div class="method">' + esc(r.method) + '</div>' : "") +
     adjs +
@@ -912,6 +978,7 @@ function showRemote(id) {
     '<div class="byline">by ' + esc(w.author) + '</div></div></div>' +
     '<div style="height:8px"></div>' +
     ratingPanel(w) +
+    unitBar() +
     ingredientPanels(w) +
     (w.method ? '<div class="method">' + esc(w.method) + '</div>' : "") +
     '<div class="actions"><button class="btn wide" data-act="add-shelf" data-id="' + id + '"' +
@@ -1016,6 +1083,7 @@ function showEditor(id) {
       return '<button class="chip" data-act="pick-cat" data-id="' + c + '" data-on="' + (EDIT.category === c ? 1 : 0) + '">' + CAT_LABEL[c] + '</button>';
     }).join("") + '</div>' +
 
+    unitBar() +
     '<label>Base</label>' +
     '<div class="basechips">' +
     '<button class="chip" data-act="base-mode" data-id="classic" data-on="' + (EDIT.baseMode === "classic" ? 1 : 0) + '">Classic base</button>' +
@@ -1031,7 +1099,7 @@ function showEditor(id) {
     '<button class="btn ghost small" data-act="add-bing">+ base ingredient</button>' +
     '</div>' +
     '<div class="basehint" id="classichint" style="' + (EDIT.baseMode === "classic" ? "" : "display:none") + '">' +
-    '400 ml milk · 40 g sweetener · pinch of salt · ¼ tsp xanthan gum</div>' +
+    classicHintText() + '</div>' +
 
     '<label for="e-method">How do you make it?</label>' +
     '<textarea id="e-method" placeholder="Blend, freeze 24h, spin on Lite Ice Cream…">' + esc(EDIT.method) + '</textarea>' +
@@ -1044,11 +1112,11 @@ function showEditor(id) {
 
 function baseRowHTML(i) {
   var opts = UNITS.map(function (u) {
-    return '<option value="' + u + '"' + (u === i.unit ? " selected" : "") + '>' + (UNIT_LABEL[u] || "—") + '</option>';
+    return '<option value="' + u + '"' + (u === i.unit ? " selected" : "") + '>' + unitEntryLabel(u) + '</option>';
   }).join("");
   return '<div class="ingrow">' +
     '<input class="b-name" placeholder="Chocolate Fairlife" value="' + esc(i.name) + '">' +
-    '<input class="b-amt" placeholder="qty" inputmode="decimal" value="' + fmtAmount(i.amount) + '">' +
+    '<input class="b-amt" placeholder="qty" inputmode="decimal" value="' + entryAmount(i) + '">' +
     '<select class="b-unit">' + opts + '</select>' +
     '<button class="rm" data-act="rm-row">×</button>' +
     '</div>' +
@@ -1058,14 +1126,14 @@ function baseRowHTML(i) {
 
 function ingRowHTML(i) {
   var opts = UNITS.map(function (u) {
-    return '<option value="' + u + '"' + (u === i.unit ? " selected" : "") + '>' + (UNIT_LABEL[u] || "—") + '</option>';
+    return '<option value="' + u + '"' + (u === i.unit ? " selected" : "") + '>' + unitEntryLabel(u) + '</option>';
   }).join("");
   var ropts = ROLES.map(function (ro) {
     return '<option value="' + ro + '"' + (ro === i.role ? " selected" : "") + '>' + ROLE_LABEL[ro] + '</option>';
   }).join("");
   return '<div class="ingrow">' +
     '<input class="i-name" placeholder="Ingredient" value="' + esc(i.name) + '">' +
-    '<input class="i-amt" placeholder="qty" inputmode="decimal" value="' + fmtAmount(i.amount) + '">' +
+    '<input class="i-amt" placeholder="qty" inputmode="decimal" value="' + entryAmount(i) + '">' +
     '<select class="i-unit">' + opts + '</select>' +
     '<button class="rm" data-act="rm-row">×</button>' +
     '</div><div class="rolerow"><select class="i-role">' + ropts + '</select></div>' +
@@ -1085,6 +1153,10 @@ function collectRows(box, prefix, role) {
     var nm = names[k].value.trim();
     if (!nm) continue;
     var amount = parseAmount(amts[k].value);
+    if (amount !== null && UNITS_MODE === "imperial") {
+      if (units[k].value === "grams") amount = Math.round(amount * OZ_G * 10) / 10;
+      if (units[k].value === "milliliters") amount = Math.round(amount * FLOZ_ML * 10) / 10;
+    }
     out.push({
       name: nm,
       amount: amount === null || isNaN(amount) ? null : amount,
@@ -1289,6 +1361,18 @@ app.addEventListener("click", function (e) {
   else if (act === "sort-cat") { SORT = id; renderCatalogue(); }
   else if (act === "palette-open") showPalettes();
   else if (act === "palette-pick") { applyPalette(id, true); showPalettes(); }
+  else if (act === "units") {
+    if (id !== UNITS_MODE) {
+      if (VIEW.name === "editor") editorSwapUnits(id);
+      UNITS_MODE = id;
+      try { localStorage.setItem(UNITS_KEY, id); } catch (e) {}
+      document.querySelectorAll('[data-act="units"]').forEach(function (b) {
+        b.setAttribute("data-on", b.getAttribute("data-id") === UNITS_MODE ? "1" : "0");
+      });
+      if (VIEW.name === "local") showLocal(VIEW.id);
+      else if (VIEW.name === "remote") showRemote(VIEW.id);
+    }
+  }
   else if (act === "spin-open") { SPIN_DRAFT = { stars: 0 }; VIEW.spinForm = true; showLocal(VIEW.id); }
   else if (act === "spin-cancel") { VIEW.spinForm = false; showLocal(VIEW.id); }
   else if (act === "spin-stars") {
@@ -1371,7 +1455,7 @@ export const MANIFEST = JSON.stringify({
 // Shell cached so the app opens instantly and offline; the catalogue is
 // network-first so an approval is never hidden behind a stale cache.
 export const SERVICE_WORKER = `
-const SHELL = "churn-shell-v24";
+const SHELL = "churn-shell-v25";
 const FILES = ["/", "/manifest.webmanifest", "/icon-180.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {
