@@ -368,7 +368,7 @@ function unitBar() {
   return '<div class="unitrow"><span class="ulab">Units</span>' +
     '<button class="uchip" data-act="units" data-id="metric" data-on="' + (UNITS_MODE === "metric" ? 1 : 0) + '">g \u00b7 ml</button>' +
     '<button class="uchip" data-act="units" data-id="imperial" data-on="' + (UNITS_MODE === "imperial" ? 1 : 0) + '">oz \u00b7 fl oz</button>' +
-    '<button class="uchip" data-act="units" data-id="cups" data-on="' + (UNITS_MODE === "cups" ? 1 : 0) + '">cups \u00b7 oz</button></div>';
+    '<button class="uchip" data-act="units" data-id="cups" data-on="' + (UNITS_MODE === "cups" ? 1 : 0) + '">cups</button></div>';
 }
 function classicHintText() {
   if (UNITS_MODE === "imperial")
@@ -1487,7 +1487,7 @@ export const MANIFEST = JSON.stringify({
 // Shell cached so the app opens instantly and offline; the catalogue is
 // network-first so an approval is never hidden behind a stale cache.
 export const SERVICE_WORKER = `
-const SHELL = "churn-shell-v26";
+const SHELL = "churn-shell-v27";
 const FILES = ["/", "/manifest.webmanifest", "/icon-180.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {
