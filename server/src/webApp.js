@@ -316,28 +316,66 @@ var UNITS_MODE = (function () {
   try { return localStorage.getItem(UNITS_KEY) === "imperial" ? "imperial" : "metric"; }
   catch (e) { return "metric"; }
 })();
-var OZ_G = 28.3495, FLOZ_ML = 29.5735;
+var OZ_G = 28.3495, FLOZ_ML = 29.5735, CUP_ML = 240;
 function trim1(v) { return String(Math.round(v * 10) / 10); }
+
+/// Cups in the fractions a measuring set actually has; anything between
+/// notches falls back to one decimal rather than pretending.
+function fmtCups(v) {
+  var whole = Math.floor(v), frac = v - whole;
+  if (frac < 0.045) return String(whole);
+  if (frac > 0.955) return String(whole + 1);
+  var FR = [[0.125, "\u215b"], [0.25, "\u00bc"], [1/3, "\u2153"], [0.375, "\u215c"],
+            [0.5, "\u00bd"], [0.625, "\u215d"], [2/3, "\u2154"], [0.75, "\u00be"], [0.875, "\u215e"]];
+  for (var k = 0; k < FR.length; k++) {
+    if (Math.abs(frac - FR[k][0]) < 0.04) return (whole || "") + FR[k][1];
+  }
+  return trim1(v);
+}
+
+/// What a stored g/ml amount becomes in the given display mode, and back.
+function convOut(a, u, mode) {
+  if (a === null || a === undefined) return a;
+  if (u === "grams" && mode !== "metric") return a / OZ_G;
+  if (u === "milliliters" && mode === "imperial") return a / FLOZ_ML;
+  if (u === "milliliters" && mode === "cups") return a / CUP_ML;
+  return a;
+}
+function convIn(a, u, mode) {
+  if (a === null || a === undefined) return a;
+  var f = 1;
+  if (u === "grams" && mode !== "metric") f = OZ_G;
+  else if (u === "milliliters" && mode === "imperial") f = FLOZ_ML;
+  else if (u === "milliliters" && mode === "cups") f = CUP_ML;
+  return Math.round(a * f * 10) / 10;
+}
+function dispNum(v, u, mode) {
+  if (u === "milliliters" && mode === "cups") return fmtCups(v);
+  if (mode !== "metric" && (u === "grams" || u === "milliliters")) return trim1(v);
+  return fmtAmount(v);
+}
 function unitEntryLabel(u) {
-  if (UNITS_MODE === "imperial" && u === "grams") return "oz";
+  if (UNITS_MODE !== "metric" && u === "grams") return "oz";
   if (UNITS_MODE === "imperial" && u === "milliliters") return "fl oz";
+  if (UNITS_MODE === "cups" && u === "milliliters") return "cup";
   return UNIT_LABEL[u] !== undefined ? UNIT_LABEL[u] : "—";
 }
 function entryAmount(i) {
   if (i.amount === null || i.amount === undefined) return "";
-  if (UNITS_MODE === "imperial" && i.unit === "grams") return trim1(i.amount / OZ_G);
-  if (UNITS_MODE === "imperial" && i.unit === "milliliters") return trim1(i.amount / FLOZ_ML);
-  return fmtAmount(i.amount);
+  return dispNum(convOut(i.amount, i.unit, UNITS_MODE), i.unit, UNITS_MODE);
 }
 function unitBar() {
   return '<div class="unitrow"><span class="ulab">Units</span>' +
     '<button class="uchip" data-act="units" data-id="metric" data-on="' + (UNITS_MODE === "metric" ? 1 : 0) + '">g \u00b7 ml</button>' +
-    '<button class="uchip" data-act="units" data-id="imperial" data-on="' + (UNITS_MODE === "imperial" ? 1 : 0) + '">oz \u00b7 fl oz</button></div>';
+    '<button class="uchip" data-act="units" data-id="imperial" data-on="' + (UNITS_MODE === "imperial" ? 1 : 0) + '">oz \u00b7 fl oz</button>' +
+    '<button class="uchip" data-act="units" data-id="cups" data-on="' + (UNITS_MODE === "cups" ? 1 : 0) + '">cups \u00b7 oz</button></div>';
 }
 function classicHintText() {
-  return UNITS_MODE === "imperial"
-    ? "13.5 fl oz milk \u00b7 1.4 oz sweetener \u00b7 pinch of salt \u00b7 \u00bc tsp xanthan gum"
-    : "400 ml milk \u00b7 40 g sweetener \u00b7 pinch of salt \u00b7 \u00bc tsp xanthan gum";
+  if (UNITS_MODE === "imperial")
+    return "13.5 fl oz milk \u00b7 1.4 oz sweetener \u00b7 pinch of salt \u00b7 \u00bc tsp xanthan gum";
+  if (UNITS_MODE === "cups")
+    return "1\u2154 cups milk \u00b7 1.4 oz sweetener \u00b7 pinch of salt \u00b7 \u00bc tsp xanthan gum";
+  return "400 ml milk \u00b7 40 g sweetener \u00b7 pinch of salt \u00b7 \u00bc tsp xanthan gum";
 }
 var ROLES = ["flavour","mixIn","topping"];
 var ROLE_LABEL = { base:"Base", flavour:"Flavour", mixIn:"Mix-ins", topping:"Toppings" };
@@ -584,25 +622,25 @@ function ensureCatalogue(then) {
 /// Flip the editor's amounts and unit labels without re-rendering the form.
 /// A re-render would rebuild EDIT from the saved recipe and eat the draft.
 function editorSwapUnits(newMode) {
-  var toImp = newMode === "imperial";
+  var oldMode = UNITS_MODE;
   document.querySelectorAll("#bings .ingrow, #ings .ingrow").forEach(function (row) {
     var amt = row.querySelector(".b-amt, .i-amt");
     var sel = row.querySelector(".b-unit, .i-unit");
     if (!amt || !sel) return;
     var v = parseAmount(amt.value);
     if (v === null) return;
-    if (sel.value === "grams") amt.value = toImp ? trim1(v / OZ_G) : fmtAmount(Math.round(v * OZ_G * 10) / 10);
-    if (sel.value === "milliliters") amt.value = toImp ? trim1(v / FLOZ_ML) : fmtAmount(Math.round(v * FLOZ_ML * 10) / 10);
+    var metric = convIn(v, sel.value, oldMode);
+    amt.value = dispNum(convOut(metric, sel.value, newMode), sel.value, newMode);
   });
+  UNITS_MODE = newMode;
   document.querySelectorAll("#bings select, #ings select").forEach(function (sel) {
     for (var k = 0; k < sel.options.length; k++) {
       var o = sel.options[k];
-      if (o.value === "grams") o.textContent = toImp ? "oz" : "g";
-      if (o.value === "milliliters") o.textContent = toImp ? "fl oz" : "ml";
+      if (o.value === "grams" || o.value === "milliliters") o.textContent = unitEntryLabel(o.value);
     }
   });
   var hint = document.getElementById("classichint");
-  if (hint) { UNITS_MODE = newMode; hint.textContent = classicHintText(); }
+  if (hint) hint.textContent = classicHintText();
 }
 
 function sendRating(recipeId, stars) {
@@ -660,13 +698,11 @@ function fmtDay(iso) {
 }
 
 function measure(i) {
-  var a = i.amount, u = i.unit;
-  var label = UNIT_LABEL[u] !== undefined ? UNIT_LABEL[u] : "";
-  var converted = false;
-  if (UNITS_MODE === "imperial" && u === "grams") { label = "oz"; converted = true; if (a != null) a = a / OZ_G; }
-  if (UNITS_MODE === "imperial" && u === "milliliters") { label = "fl oz"; converted = true; if (a != null) a = a / FLOZ_ML; }
-  if (a === null || a === undefined) return label;
-  return ((converted ? trim1(a) : fmtAmount(a)) + " " + label).trim();
+  var label = unitEntryLabel(i.unit);
+  if (label === "\u2014") label = "";
+  if (i.amount === null || i.amount === undefined) return label;
+  var v = convOut(i.amount, i.unit, UNITS_MODE);
+  return (dispNum(v, i.unit, UNITS_MODE) + " " + label).trim();
 }
 
 /// Each stage is its own sticker panel, so the ground shows between them.
@@ -1152,11 +1188,7 @@ function collectRows(box, prefix, role) {
   for (var k = 0; k < names.length; k++) {
     var nm = names[k].value.trim();
     if (!nm) continue;
-    var amount = parseAmount(amts[k].value);
-    if (amount !== null && UNITS_MODE === "imperial") {
-      if (units[k].value === "grams") amount = Math.round(amount * OZ_G * 10) / 10;
-      if (units[k].value === "milliliters") amount = Math.round(amount * FLOZ_ML * 10) / 10;
-    }
+    var amount = convIn(parseAmount(amts[k].value), units[k].value, UNITS_MODE);
     out.push({
       name: nm,
       amount: amount === null || isNaN(amount) ? null : amount,
@@ -1455,7 +1487,7 @@ export const MANIFEST = JSON.stringify({
 // Shell cached so the app opens instantly and offline; the catalogue is
 // network-first so an approval is never hidden behind a stale cache.
 export const SERVICE_WORKER = `
-const SHELL = "churn-shell-v25";
+const SHELL = "churn-shell-v26";
 const FILES = ["/", "/manifest.webmanifest", "/icon-180.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {
